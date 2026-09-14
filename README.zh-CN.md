@@ -64,10 +64,6 @@ flowchart TB
     P4 --> P5
 ```
 
-<p align="center">
-  <sub>交互式在线动态图谱：<a href="agent-workflow-zh.html">Agent 全流程运行图谱</a> | <a href="reflexion-memory-architecture-zh.html">反思记忆引擎架构</a>（支持明暗主题切换、Trace Motion 动态流光粒子与画布缩放平移）</sub>
-</p>
-
 ---
 
 ## 核心架构与专属能力
@@ -107,8 +103,7 @@ flowchart TB
 ├── .agents/
 │   ├── plugins/context-mode/       # 项目私有 MCP 插件配置
 │   ├── scripts/                    # 沉淀的自造 CLI 脚本资产 (runner.js, audit-locales.js, blast-radius.js)
-│   ├── skills/                     # Agent 专属技能库 (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
-│   └── memory.db                   # SQLite 持久化经验与反思数据库
+│   └── skills/                     # Agent 专属技能库 (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
 ├── locales/                        # 多语言字典资源包 (en-US, zh-CN)
 ├── src/
 │   ├── agent/                      # 统一循环：plan → tool → reflect

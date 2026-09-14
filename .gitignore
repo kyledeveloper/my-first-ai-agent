@@ -12,9 +12,18 @@ logs
 npm-debug.log*
 
 # Database WAL & temp files
+*.db
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Generated diagrams (keep the archify HTML template)
+*.html
+!.agents/skills/archify/assets/template.html
+
+# Upstream archify demo tree — not this project's source
+.agents/skills/archify/examples/
+
 
 # Environment
 .env

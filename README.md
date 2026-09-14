@@ -64,10 +64,6 @@ flowchart TB
     P4 --> P5
 ```
 
-<p align="center">
-  <sub>Interactive live diagrams: <a href="agent-workflow.html">Agent Operational Workflow</a> | <a href="reflexion-memory-architecture.html">Reflexion Memory Engine</a> (supports dark/light theme, trace motion & full-canvas pan/zoom)</sub>
-</p>
-
 ---
 
 ## Architecture & Capabilities
@@ -107,8 +103,7 @@ flowchart TB
 ├── .agents/
 │   ├── plugins/context-mode/       # Project-isolated MCP server configuration
 │   ├── scripts/                    # Synthesized CLI tool assets (runner.js, audit-locales.js, blast-radius.js)
-│   ├── skills/                     # Agent behavioral skills (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, i18n, code-graph)
-│   └── memory.db                   # SQLite persistent episodic & reflective memory database
+│   └── skills/                     # Agent behavioral skills (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, i18n, code-graph)
 ├── locales/                        # Internationalization locale packs (en-US, zh-CN)
 ├── src/
 │   ├── agent/                      # Unified loop: plan → tool → reflect
