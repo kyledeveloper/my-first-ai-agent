@@ -1,0 +1,9 @@
+{
+  "app.title": "My First AI Agent",
+  "app.description": "An AI Agent workspace powered by LLMs and Agent Skills ecosystem",
+  "common.welcome": "Hello, {{name}}! Welcome to AI Agent.",
+  "common.language": "Current Language: English",
+  "action.save": "Save",
+  "action.cancel": "Cancel",
+  "action.submit": "Submit"
+}

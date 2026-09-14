@@ -1,0 +1,9 @@
+{
+  "app.title": "我的第一个 AI 智能体",
+  "app.description": "基于大语言模型与 Agent 技能系统的智能体工作区",
+  "common.welcome": "你好，{{name}}！欢迎使用 AI Agent。",
+  "common.language": "当前语言：中文",
+  "action.save": "保存",
+  "action.cancel": "取消",
+  "action.submit": "提交"
+}
