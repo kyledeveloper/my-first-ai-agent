@@ -20,14 +20,16 @@
 3. **上下文优化（`.agents/plugins/context-mode`）**：
    * 项目级隔离配置的 `context-mode` MCP 服务，大幅减少工具调用中的输出噪音与 Token 消耗。
 4. **交互式架构可视化（`archify`）**：
-   * 支持明暗主题、动态轨迹（Trace Motion）的独立交互式 SVG/HTML 架构全景图。
-5. **分层多语言国际化（`src/i18n.js` & `locales/`）**：
+   * 支持明暗主题、动态轨迹（Trace Motion）的独立交互式 SVG/HTML 架构全景图，提供多格式无损导出能力。
+5. **Ponytail 极简编码心智哲学（`.agents/skills/ponytail/`）**：
+   * 严格执行 7 阶必要性阶梯（YAGNI、代码库复用、标准库优先、原生特性优先、已装依赖优先、单行优先）。坚决剔除过度抽象，同时严格守牢边界校验、错误处理与安全底线。
+6. **分层多语言国际化（`src/i18n.js` & `locales/`）**：
    * 基于 `i18next` 运行时，支持字典 100% 对齐审计、运行时自适应切换与 CLI 工具多语言输出。
-6. **测试驱动与自愈闭环（`tdd-workflow`）**：
+7. **测试驱动与自愈闭环（`tdd-workflow`）**：
    * 严格贯彻 Red-Green-Refactor 研发准则；新功能与 Bug 修复前必须先编写复现断言测试。沙盒内零外部网络执行，零多余 Token 损耗。
-7. **Pre-Push 安全与代码异味守门人（`pre-push-check`）**：
+8. **Pre-Push 安全与代码异味守门人（`pre-push-check`）**：
    * 严守“仅在 `git push` 前触发”的铁律（通过 `.git/hooks/pre-push` 或 CLI 触发），硬性拦截硬编码 API Key/Token，审计依赖高危漏洞，预警函数过长与过深嵌套。
-8. **深度代码符号图谱与修改影响面分析（`src/graph/` & `blast-radius.js`）**：
+9. **深度代码符号图谱与修改影响面分析（`src/graph/` & `blast-radius.js`）**：
    * 零外部网络依赖的 AST 符号依赖图谱引擎。精准量化直接与间接波及模块（爆炸半径），自动圈定受影响测试套件，并生成防崩重构预案。
 
 ---
@@ -39,7 +41,7 @@
 ├── .agents/
 │   ├── plugins/context-mode/       # 项目私有 MCP 插件配置
 │   ├── scripts/                    # 沉淀的自造 CLI 脚本资产 (runner.js, audit-locales.js, blast-radius.js)
-│   ├── skills/                     # Agent 专属技能库 (archify, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
+│   ├── skills/                     # Agent 专属技能库 (archify, ponytail, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
 │   └── memory.db                   # SQLite 持久化经验与反思数据库
 ├── locales/                        # 多语言字典资源包 (en-US, zh-CN)
 ├── src/

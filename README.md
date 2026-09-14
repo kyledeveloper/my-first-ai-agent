@@ -20,14 +20,16 @@ An autonomous, self-improving AI Agent workspace engineered with **Long-Term Ref
 3. **Context Optimization (`.agents/plugins/context-mode`)**:
    - Scoped project plugin running `context-mode` MCP server to save token consumption on complex tasks.
 4. **Interactive Architecture Visualization (`archify`)**:
-   - Interactive SVG/HTML system topology maps with light/dark themes and animated trace flows.
-5. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
+   - Interactive SVG/HTML system topology maps with light/dark themes, animated trace flows, and visual export capabilities.
+5. **Ponytail Minimalist Coding Philosophy (`.agents/skills/ponytail/`)**:
+   - Enforces a 7-rung necessity ladder (YAGNI, codebase reuse, stdlib first, native platform, installed dependencies, one-line solutions). Rejects unrequested abstractions and premature complexity while strictly preserving security, boundary validation, and error handling.
+6. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
    - Professional `i18next` integration supporting dynamic switching, locale key audit, and adaptive CLI output.
-6. **TDD & Self-Healing Loop (`.agents/skills/tdd-workflow/`)**:
+7. **TDD & Self-Healing Loop (`.agents/skills/tdd-workflow/`)**:
    - Strict Red-Green-Refactor discipline; failing tests are written first before functional implementation. Runs offline with zero external token overhead.
-7. **Pre-Push Security Gatekeeper (`.agents/scripts/pre-push-check.js`)**:
+8. **Pre-Push Security Gatekeeper (`.agents/scripts/pre-push-check.js`)**:
    - Automated check executed strictly prior to `git push` (via `.git/hooks/pre-push` or CLI) to intercept hardcoded API keys, audit dependencies, and flag code smell.
-8. **Code Symbol Graph & Blast-Radius Analysis (`src/graph/` & `blast-radius.js`)**:
+9. **Code Symbol Graph & Blast-Radius Analysis (`src/graph/` & `blast-radius.js`)**:
    - Zero-dependency AST and symbol dependency graph engine. Calculates direct/indirect impact scopes, flags affected test suites, and generates actionable pre-refactoring safety plans.
 
 ---
@@ -38,8 +40,8 @@ An autonomous, self-improving AI Agent workspace engineered with **Long-Term Ref
 .
 ├── .agents/
 │   ├── plugins/context-mode/       # Project-isolated MCP server configuration
-│   ├── scripts/                    # Synthesized CLI tool assets (runner.js, audit-locales.js)
-│   ├── skills/                     # Agent behavioral skills (archify, reflexion-memory, self-toolmaker, i18n)
+│   ├── scripts/                    # Synthesized CLI tool assets (runner.js, audit-locales.js, blast-radius.js)
+│   ├── skills/                     # Agent behavioral skills (archify, ponytail, reflexion-memory, self-toolmaker, i18n, code-graph)
 │   └── memory.db                   # SQLite persistent episodic & reflective memory database
 ├── locales/                        # Internationalization locale packs (en-US, zh-CN)
 ├── src/
