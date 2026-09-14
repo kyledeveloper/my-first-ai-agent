@@ -178,4 +178,4 @@ node .agents/scripts/runner.js audit-locales
 ---
 
 ## 开源协议
-MIT
+[MIT](LICENSE)

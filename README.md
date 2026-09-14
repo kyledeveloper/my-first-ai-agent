@@ -180,4 +180,4 @@ We extend our sincere gratitude to the open-source creators and pioneers whose s
 ---
 
 ## License
-MIT
+[MIT](LICENSE)
