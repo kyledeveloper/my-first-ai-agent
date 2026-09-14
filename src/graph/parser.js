@@ -6,6 +6,44 @@
 
 const fs = require('fs');
 const path = require('path');
+const acorn = require('acorn');
+const walk = require('acorn-walk');
+
+const BUILTIN_GLOBALS = new Set([
+  'JSON', 'Math', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date',
+  'RegExp', 'Error', 'Promise', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Symbol',
+  'console', 'process', 'Buffer', 'global', 'globalThis', 'window', 'document',
+  'fs', 'path', 'os', 'child_process', 'crypto', 'http', 'https', 'url', 'util'
+]);
+
+/**
+ * Recursively collect identifier names from a pattern.
+ */
+function collectPatternNames(pattern, names = []) {
+  if (!pattern) return names;
+  if (pattern.type === 'Identifier') {
+    names.push(pattern.name);
+    return names;
+  }
+  if (pattern.type === 'AssignmentPattern') {
+    return collectPatternNames(pattern.left, names);
+  }
+  if (pattern.type === 'RestElement') {
+    return collectPatternNames(pattern.argument, names);
+  }
+  if (pattern.type === 'ArrayPattern') {
+    pattern.elements.forEach(elem => elem && collectPatternNames(elem, names));
+    return names;
+  }
+  if (pattern.type === 'ObjectPattern') {
+    pattern.properties.forEach(prop => {
+      const target = prop.type === 'Property' ? prop.value : prop.argument;
+      if (target) collectPatternNames(target, names);
+    });
+    return names;
+  }
+  return names;
+}
 
 /**
  * Resolve relative or local module import path to an absolute file path.
@@ -49,6 +87,30 @@ function resolveModulePath(importPath, currentFilePath) {
 }
 
 /**
+ * Skip quoted string literal content in stripComments.
+ */
+function skipStringLiteral(code, startIdx, quote) {
+  let out = quote;
+  let i = startIdx + 1;
+  const n = code.length;
+  while (i < n) {
+    const ch = code[i];
+    out += ch;
+    if (ch === '\\' && i + 1 < n) {
+      out += code[i + 1];
+      i += 2;
+      continue;
+    }
+    if (ch === quote) {
+      i++;
+      break;
+    }
+    i++;
+  }
+  return { text: out, nextIdx: i };
+}
+
+/**
  * Strip line and block comments without treating // inside strings as comments.
  * Preserves "https://..." and similar URL literals that a naive //.* regex would truncate.
  */
@@ -62,23 +124,9 @@ function stripComments(code) {
     const next = i + 1 < n ? code[i + 1] : '';
 
     if (c === '"' || c === "'" || c === '`') {
-      const quote = c;
-      out += c;
-      i++;
-      while (i < n) {
-        const ch = code[i];
-        out += ch;
-        if (ch === '\\' && i + 1 < n) {
-          out += code[i + 1];
-          i += 2;
-          continue;
-        }
-        if (ch === quote) {
-          i++;
-          break;
-        }
-        i++;
-      }
+      const res = skipStringLiteral(code, i, c);
+      out += res.text;
+      i = res.nextIdx;
       continue;
     }
 
@@ -135,12 +183,9 @@ function findMatchingBrace(code, startIndex) {
 }
 
 /**
- * Parse source code string and extract symbols, dependencies, and exports.
- * @param {string} code - Source code
- * @param {string} filePath - Absolute file path
- * @returns {object} Parsed symbol metadata
+ * Fallback regex-based lexical extractor for non-standard / TypeScript syntax.
  */
-function parseSource(code, filePath) {
+function parseWithRegexFallback(code, filePath) {
   if (!code || typeof code !== 'string') {
     return {
       filePath,
@@ -337,6 +382,266 @@ function parseSource(code, filePath) {
     classes,
     callSites: Array.from(callSites)
   };
+}
+
+/**
+ * Extract imports from Acorn AST node.
+ */
+/**
+ * Parse import specifiers for ESM imports.
+ */
+function parseImportSpecifiers(specifiers) {
+  let defaultName = null;
+  const named = [];
+  for (const spec of specifiers) {
+    if (spec.type === 'ImportDefaultSpecifier' || spec.type === 'ImportNamespaceSpecifier') {
+      defaultName = spec.local.name;
+      continue;
+    }
+    if (spec.type === 'ImportSpecifier') {
+      named.push(spec.local.name);
+      if (spec.imported && spec.imported.name && spec.imported.name !== spec.local.name) {
+        named.push(spec.imported.name);
+      }
+    }
+  }
+  return { defaultName, named };
+}
+
+/**
+ * Extract ESM ImportDeclaration.
+ */
+function extractEsmImports(node, filePath, imports) {
+  const source = node.source.value;
+  const resolvedPath = resolveModulePath(source, filePath);
+  const { defaultName, named } = parseImportSpecifiers(node.specifiers || []);
+  imports.push({
+    type: 'esm',
+    source,
+    resolvedPath,
+    defaultName,
+    named: named.length > 0 ? named : null
+  });
+}
+
+/**
+ * Extract CJS require call from variable declaration.
+ */
+function extractCjsRequire(decl, filePath, imports) {
+  if (!decl.init || decl.init.type !== 'CallExpression' || !decl.init.callee || decl.init.callee.name !== 'require') {
+    return;
+  }
+  const arg = decl.init.arguments[0];
+  if (!arg || arg.type !== 'Literal' || typeof arg.value !== 'string') {
+    return;
+  }
+  const source = arg.value;
+  const resolvedPath = resolveModulePath(source, filePath);
+
+  if (decl.id.type === 'Identifier') {
+    imports.push({ type: 'cjs', source, resolvedPath, defaultName: decl.id.name, named: null });
+    return;
+  }
+  if (decl.id.type === 'ObjectPattern') {
+    const names = collectPatternNames(decl.id);
+    imports.push({ type: 'cjs', source, resolvedPath, defaultName: null, named: names });
+  }
+}
+
+/**
+ * Extract imports from Acorn AST node.
+ */
+function extractAcornImports(node, filePath, imports) {
+  if (node.type === 'ImportDeclaration') {
+    extractEsmImports(node, filePath, imports);
+    return;
+  }
+  if (node.type === 'VariableDeclaration') {
+    for (const decl of node.declarations) {
+      extractCjsRequire(decl, filePath, imports);
+    }
+  }
+}
+
+/**
+ * Extract named exports from Acorn ExportNamedDeclaration.
+ */
+function extractNamedExport(node, exportsList) {
+  const decl = node.declaration;
+  if (decl && decl.id && decl.id.name) {
+    exportsList.add(decl.id.name);
+  } else if (decl && decl.declarations) {
+    decl.declarations.forEach(d => {
+      collectPatternNames(d.id).forEach(n => exportsList.add(n));
+    });
+  }
+
+  for (const spec of (node.specifiers || [])) {
+    const publicName = spec.exported ? (spec.exported.name || spec.exported.value) : null;
+    if (publicName) exportsList.add(String(publicName));
+  }
+}
+
+/**
+ * Extract exports from module.exports assignment.
+ */
+function extractModuleExports(right, exportsList) {
+  if (right.type === 'Identifier') {
+    exportsList.add(right.name);
+    return;
+  }
+  if (right.type === 'ObjectExpression') {
+    for (const prop of right.properties) {
+      const name = prop.key ? (prop.key.name || prop.key.value) : null;
+      if (name) exportsList.add(String(name));
+    }
+  }
+}
+
+/**
+ * Extract exports from assignment expression.
+ */
+function extractAssignmentExport(node, exportsList) {
+  const left = node.left;
+  if (!left || left.type !== 'MemberExpression') return;
+
+  if (left.object && left.object.name === 'module' && left.property && left.property.name === 'exports') {
+    extractModuleExports(node.right, exportsList);
+    return;
+  }
+  if (left.object && left.object.name === 'exports') {
+    const name = left.property ? (left.property.name || left.property.value) : null;
+    if (name) exportsList.add(String(name));
+  }
+}
+
+/**
+ * Extract exports from Acorn AST node.
+ */
+function extractAcornExports(node, exportsList) {
+  if (node.type === 'ExportNamedDeclaration') {
+    extractNamedExport(node, exportsList);
+    return;
+  }
+  if (node.type === 'ExportDefaultDeclaration') {
+    const name = (node.declaration && node.declaration.id) ? node.declaration.id.name : 'default';
+    exportsList.add(name);
+    return;
+  }
+  if (node.type === 'AssignmentExpression') {
+    extractAssignmentExport(node, exportsList);
+  }
+}
+
+/**
+ * Extract functions and classes from Acorn AST node.
+ */
+function extractAcornDeclarations(node, functions, classes, callSites) {
+  if (node.type === 'FunctionDeclaration' && node.id) {
+    const params = node.params.map(p => (p.type === 'Identifier' ? p.name : '')).filter(Boolean);
+    functions.push({ name: node.id.name, params, startLine: node.loc.start.line, endLine: node.loc.end.line });
+  } else if (node.type === 'ClassDeclaration' && node.id) {
+    const ext = node.superClass && node.superClass.type === 'Identifier' ? node.superClass.name : null;
+    classes.push({ name: node.id.name, extends: ext, startLine: node.loc.start.line, endLine: node.loc.end.line });
+    if (ext) callSites.add(ext);
+  } else if (node.type === 'VariableDeclaration') {
+    for (const decl of node.declarations) {
+      if (decl.id.type === 'Identifier' && decl.init && (decl.init.type === 'ArrowFunctionExpression' || decl.init.type === 'FunctionExpression')) {
+        const params = decl.init.params.map(p => (p.type === 'Identifier' ? p.name : '')).filter(Boolean);
+        functions.push({ name: decl.id.name, params, startLine: node.loc.start.line, endLine: node.loc.end.line });
+      }
+    }
+  }
+}
+
+/**
+ * Extract call sites, filtering out global built-in methods (e.g. JSON.parse, Math.max).
+ */
+function extractAcornCallSites(node, callSites) {
+  if (node.type !== 'CallExpression') return;
+  const callee = node.callee;
+  if (callee.type === 'Identifier') {
+    if (!['require', 'import', 'if', 'for', 'while', 'switch'].includes(callee.name)) {
+      callSites.add(callee.name);
+    }
+  } else if (callee.type === 'MemberExpression') {
+    let root = callee.object;
+    while (root && root.object) root = root.object;
+    const isGlobal = root && root.name && BUILTIN_GLOBALS.has(root.name);
+    if (!isGlobal) {
+      const propName = callee.property ? (callee.property.name || callee.property.value) : null;
+      if (callee.object.type === 'Identifier' && propName) {
+        callSites.add(`${callee.object.name}.${propName}`);
+      }
+      if (propName) callSites.add(String(propName));
+    }
+  }
+}
+
+/**
+ * High-precision pure JS AST parser via Acorn.
+ */
+function parseWithAcorn(code, filePath) {
+  const ast = acorn.parse(code, {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    locations: true,
+    allowReturnOutsideFunction: true,
+    allowImportExportEverywhere: true,
+    allowAwaitOutsideFunction: true
+  });
+
+  const imports = [];
+  const exportsList = new Set();
+  const functions = [];
+  const classes = [];
+  const callSites = new Set();
+
+  walk.simple(ast, {
+    ImportDeclaration(node) { extractAcornImports(node, filePath, imports); },
+    VariableDeclaration(node) {
+      extractAcornImports(node, filePath, imports);
+      extractAcornDeclarations(node, functions, classes, callSites);
+    },
+    FunctionDeclaration(node) { extractAcornDeclarations(node, functions, classes, callSites); },
+    ClassDeclaration(node) { extractAcornDeclarations(node, functions, classes, callSites); },
+    ExportNamedDeclaration(node) { extractAcornExports(node, exportsList); },
+    ExportDefaultDeclaration(node) { extractAcornExports(node, exportsList); },
+    AssignmentExpression(node) { extractAcornExports(node, exportsList); },
+    CallExpression(node) { extractAcornCallSites(node, callSites); }
+  });
+
+  return {
+    filePath,
+    imports,
+    exports: Array.from(exportsList),
+    functions,
+    classes,
+    callSites: Array.from(callSites)
+  };
+}
+
+/**
+ * Parse source code string and extract symbols, dependencies, and exports.
+ * Attempts pure JS Acorn AST parsing first; falls back smoothly to regex parser on syntax errors.
+ */
+function parseSource(code, filePath) {
+  if (!code || typeof code !== 'string') {
+    return {
+      filePath,
+      imports: [],
+      exports: [],
+      functions: [],
+      classes: [],
+      callSites: []
+    };
+  }
+
+  try {
+    return parseWithAcorn(code, filePath);
+  } catch (err) {
+    return parseWithRegexFallback(code, filePath);
+  }
 }
 
 /**

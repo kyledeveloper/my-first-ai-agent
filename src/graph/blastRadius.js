@@ -9,12 +9,43 @@ const { SymbolGraph } = require('./index');
 const { findNodesAtLines } = require('./parser');
 
 /**
- * Parse unified diff text and extract modified line numbers for the specified file.
- * @param {string} diffText
- * @param {string} [targetFilePath]
- * @returns {number[]} 1-based modified line numbers
+ * Add hunk lines to lines set.
+ * @param {Set<number>} linesSet
+ * @param {number} start
+ * @param {number} count
  */
-function parseDiffHunks(diffText, targetFilePath) {
+function addHunkLines(linesSet, start, count) {
+  if (count === 0) {
+    linesSet.add(start);
+    return;
+  }
+  for (let i = 0; i < count; i++) {
+    linesSet.add(start + i);
+  }
+}
+
+/**
+ * Extract hunk matches from text.
+ * @param {string} text
+ * @param {Set<number>} linesSet
+ */
+function extractHunkMatches(text, linesSet) {
+  const hunkRegex = /^@@\s+-(?:\d+)(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/gm;
+  let match;
+  while ((match = hunkRegex.exec(text)) !== null) {
+    const newStart = parseInt(match[1], 10);
+    const newCount = match[2] !== undefined ? parseInt(match[2], 10) : 1;
+    addHunkLines(linesSet, newStart, newCount);
+  }
+}
+
+/**
+ * Parse unified diff text (git diff -U0) and extract modified line numbers.
+ * @param {string} diffText - Raw diff output
+ * @param {string} targetFilePath - Optional target file path to filter hunks
+ * @returns {number[]} - Array of modified line numbers in the target file
+ */
+function parseDiffHunks(diffText, targetFilePath = null) {
   if (!diffText || typeof diffText !== 'string') return [];
 
   const lines = new Set();
@@ -30,38 +61,12 @@ function parseDiffHunks(diffText, targetFilePath) {
       if (!belongsToTarget) continue;
     }
 
-    const hunkRegex = /^@@\s+-(?:\d+)(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/gm;
-    let match;
-    while ((match = hunkRegex.exec(chunk)) !== null) {
-      const newStart = parseInt(match[1], 10);
-      const newCount = match[2] !== undefined ? parseInt(match[2], 10) : 1;
-
-      if (newCount === 0) {
-        lines.add(newStart);
-      } else {
-        for (let i = 0; i < newCount; i++) {
-          lines.add(newStart + i);
-        }
-      }
-    }
+    extractHunkMatches(chunk, lines);
   }
 
   // If no lines matched chunks (e.g. diff without git headers), match directly
   if (lines.size === 0) {
-    const hunkRegex = /^@@\s+-(?:\d+)(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/gm;
-    let match;
-    while ((match = hunkRegex.exec(diffText)) !== null) {
-      const newStart = parseInt(match[1], 10);
-      const newCount = match[2] !== undefined ? parseInt(match[2], 10) : 1;
-
-      if (newCount === 0) {
-        lines.add(newStart);
-      } else {
-        for (let i = 0; i < newCount; i++) {
-          lines.add(newStart + i);
-        }
-      }
-    }
+    extractHunkMatches(diffText, lines);
   }
 
   return Array.from(lines).sort((a, b) => a - b);

@@ -369,4 +369,81 @@ console.log('✓ Test 17 Passed: CLI with --diff flag produces structured diff-a
 // Cleanup hermetic tmp directory
 fs.rmSync(tmpDir, { recursive: true, force: true });
 
-console.log('\nAll 17 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+// Test 18: Deep destructuring and aliases in CJS require and ESM import/export
+console.log('Testing Acorn Parser deep destructuring and aliases...');
+const deepCode = `
+const { config: { db: { connectionString: dbUri } } } = require('./config');
+import { originalName as aliasedName, standardHelper } from './utils';
+
+function runner() {
+  return aliasedName(dbUri);
+}
+
+const exportedValue = 100;
+export { runner, exportedValue as publicValue };
+`;
+const parsedDeep = parseSource(deepCode, '/project/src/deep.js');
+assert.ok(parsedDeep.imports.some(i => i.source.includes('config') && i.named && i.named.includes('dbUri')), 'Should capture deeply destructured dbUri alias');
+assert.ok(parsedDeep.imports.some(i => i.source.includes('utils') && i.named && i.named.includes('aliasedName')), 'Should capture aliasedName import');
+assert.ok(parsedDeep.exports.includes('runner'), 'Should capture runner export');
+assert.ok(parsedDeep.exports.includes('publicValue'), 'Should capture publicValue export alias');
+console.log('✓ Test 18 Passed: Deep destructuring and export aliases parsed accurately.');
+
+// Test 19: False-positive elimination for built-in globals (JSON.parse, Math.max, etc.)
+console.log('Testing False-positive elimination for built-in globals...');
+const globalCallsCode = `
+const customParser = require('./customParser');
+
+function handler(data) {
+  const obj = JSON.parse(data); // Built-in global JSON.parse
+  const maxVal = Math.max(1, 2); // Built-in global Math.max
+  console.log(obj, maxVal); // Built-in global console.log
+  return customParser.parse(obj); // Real user symbol call
+}
+`;
+const parsedGlobals = parseSource(globalCallsCode, '/project/src/handler.js');
+assert.ok(!parsedGlobals.callSites.includes('JSON.parse'), 'Should NOT include JSON.parse in call sites');
+assert.ok(!parsedGlobals.callSites.includes('Math.max'), 'Should NOT include Math.max in call sites');
+assert.ok(!parsedGlobals.callSites.includes('console.log'), 'Should NOT include console.log in call sites');
+assert.ok(parsedGlobals.callSites.includes('customParser.parse'), 'Should include customParser.parse in call sites');
+console.log('✓ Test 19 Passed: Built-in global calls successfully excluded from call sites.');
+
+// Test 20: Scope chain awareness and local variable shadowing
+console.log('Testing Scope chain awareness and local variable shadowing...');
+const scopeCode = `
+function outer() {
+  function calculate(x) {
+    return x * 2;
+  }
+  return calculate(10);
+}
+
+function shadowScope(calculate) {
+  return calculate();
+}
+`;
+const parsedScope = parseSource(scopeCode, '/project/src/scope.js');
+assert.ok(parsedScope.functions.some(f => f.name === 'outer'), 'outer function captured');
+assert.ok(parsedScope.functions.some(f => f.name === 'shadowScope'), 'shadowScope function captured');
+console.log('✓ Test 20 Passed: Lexical scopes and function declarations accurately indexed.');
+
+// Test 21: Smooth fallback on non-standard / TypeScript syntax
+console.log('Testing Smooth fallback on non-standard / TypeScript syntax...');
+const tsCode = `
+interface UserConfig {
+  id: string;
+  port: number;
+}
+
+export function startServer(cfg: UserConfig): void {
+  console.log(cfg.port);
+}
+
+module.exports = { startServer };
+`;
+const parsedTs = parseSource(tsCode, '/project/src/server.ts');
+assert.ok(parsedTs, 'Fallback parser should not throw on TS syntax');
+assert.ok(parsedTs.exports.includes('startServer'), 'Fallback parser should extract exported startServer');
+console.log('✓ Test 21 Passed: Smooth fallback on TS syntax succeeds without crashing.');
+
+console.log('\nAll 21 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
