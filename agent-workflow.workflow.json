@@ -1,0 +1,356 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Autonomous AI Agent End-to-End Operational Workflow",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "full-cycle",
+        "label": "Full Lifecycle",
+        "focus": [
+          "user_intent",
+          "ponytail_ladder",
+          "reflexion_memory",
+          "blast_radius",
+          "tdd_runner",
+          "pre_push_gate",
+          "toolmaker_distill"
+        ],
+        "note": "Complete loop from intent analysis, blast-radius pre-check, TDD, security gatekeeper, to lifelong learning"
+      },
+      {
+        "id": "perception-planning",
+        "label": "Perception & Planning",
+        "focus": [
+          "user_intent",
+          "ponytail_ladder",
+          "reflexion_memory",
+          "blast_radius"
+        ],
+        "note": "Pre-execution intelligence: YAGNI decision ladder, historical lessons retrieval, and AST blast-radius calculation"
+      },
+      {
+        "id": "execution-quality",
+        "label": "Execution & Quality Guard",
+        "focus": [
+          "tdd_runner",
+          "sandbox_test",
+          "pre_push_gate",
+          "git_commit"
+        ],
+        "note": "Strict Red-Green-Refactor loop in offline sandbox, followed by hard-blocking secret and vulnerability scanning"
+      },
+      {
+        "id": "self-evolution",
+        "label": "Lifelong Evolution",
+        "focus": [
+          "sandbox_test",
+          "reflexion_store",
+          "toolmaker_distill",
+          "agents_rules"
+        ],
+        "note": "Distilling post-recovery lessons into SQLite FTS5 memory and synthesizing repetitive workflows into CLI tools"
+      }
+    ],
+    "output": "agent-workflow.html"
+  },
+  "lanes": [
+    {
+      "id": "intent_lane",
+      "label": "Intent & Decision Mindset"
+    },
+    {
+      "id": "perception_lane",
+      "label": "Code Perception & Analysis"
+    },
+    {
+      "id": "quality_lane",
+      "label": "Quality & Security Guard",
+      "variant": "exception"
+    },
+    {
+      "id": "evolution_lane",
+      "label": "Evolution & Asset Factory"
+    }
+  ],
+  "phases": [
+    {
+      "id": "intake_phase",
+      "label": "Intake & Planning",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "verify_phase",
+      "label": "Impact & Verification",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "delivery_phase",
+      "label": "Delivery & Evolution",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "mindset_grp",
+      "label": "YAGNI & Memory Recall",
+      "lane": "intent_lane",
+      "fromCol": 0,
+      "toCol": 1,
+      "variant": "emphasis"
+    },
+    {
+      "id": "analysis_grp",
+      "label": "AST Call Graph & Blast Radius",
+      "lane": "perception_lane",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "default"
+    },
+    {
+      "id": "quality_grp",
+      "label": "TDD & Gatekeeper Guard",
+      "lane": "quality_lane",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "security"
+    },
+    {
+      "id": "asset_grp",
+      "label": "Lifelong Memory & Synthesized CLI",
+      "lane": "evolution_lane",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "user_intent",
+    "ponytail_ladder",
+    "blast_radius",
+    "tdd_runner",
+    "pre_push_gate",
+    "git_commit"
+  ],
+  "nodes": [
+    {
+      "id": "user_intent",
+      "lane": "intent_lane",
+      "col": 0,
+      "type": "external",
+      "label": "User Request",
+      "sublabel": "task or bug report",
+      "width": 120
+    },
+    {
+      "id": "ponytail_ladder",
+      "lane": "intent_lane",
+      "col": 1,
+      "type": "backend",
+      "label": "Ponytail Filter",
+      "sublabel": "7-rung YAGNI ladder",
+      "tag": "stdlib first",
+      "width": 120
+    },
+    {
+      "id": "reflexion_memory",
+      "lane": "intent_lane",
+      "col": 2,
+      "type": "database",
+      "label": "Memory Recall",
+      "sublabel": "FTS5 3D decay match",
+      "tag": "prevent mistakes",
+      "width": 120
+    },
+    {
+      "id": "blast_radius",
+      "lane": "perception_lane",
+      "col": 2,
+      "type": "backend",
+      "label": "AST Blast Radius",
+      "sublabel": "symbol callers & tests",
+      "tag": "safety plan",
+      "width": 120
+    },
+    {
+      "id": "code_graph",
+      "lane": "perception_lane",
+      "col": 1,
+      "type": "backend",
+      "label": "Symbol Graph",
+      "sublabel": "import / export AST",
+      "width": 120
+    },
+    {
+      "id": "tdd_runner",
+      "lane": "quality_lane",
+      "col": 3,
+      "type": "security",
+      "label": "TDD Loop",
+      "sublabel": "Red-Green-Refactor",
+      "tag": "offline sandbox",
+      "width": 120
+    },
+    {
+      "id": "sandbox_test",
+      "lane": "quality_lane",
+      "col": 2,
+      "type": "messagebus",
+      "label": "Sandbox Engine",
+      "sublabel": "zero token overhead",
+      "width": 120
+    },
+    {
+      "id": "pre_push_gate",
+      "lane": "quality_lane",
+      "col": 4,
+      "type": "security",
+      "label": "Pre-Push Gate",
+      "sublabel": "secrets, CVE & smells",
+      "tag": "hard block",
+      "width": 120
+    },
+    {
+      "id": "git_commit",
+      "lane": "quality_lane",
+      "col": 5,
+      "type": "backend",
+      "label": "Local Commit",
+      "sublabel": "verified & unpushed",
+      "tag": "user push only",
+      "width": 120
+    },
+    {
+      "id": "reflexion_store",
+      "lane": "evolution_lane",
+      "col": 3,
+      "type": "database",
+      "label": "Reflexion Store",
+      "sublabel": "sqlite WAL & heuristics",
+      "width": 120
+    },
+    {
+      "id": "toolmaker_distill",
+      "lane": "evolution_lane",
+      "col": 4,
+      "type": "backend",
+      "label": "Self-Toolmaker",
+      "sublabel": "freq >= 3 CLI synth",
+      "tag": "runner.js",
+      "width": 120
+    },
+    {
+      "id": "agents_rules",
+      "lane": "evolution_lane",
+      "col": 5,
+      "type": "external",
+      "label": "AGENTS.md Rules",
+      "sublabel": "consolidated rules",
+      "width": 120
+    }
+  ],
+  "edges": [
+    {
+      "id": "intent-to-ladder",
+      "from": "user_intent",
+      "to": "ponytail_ladder",
+      "variant": "default"
+    },
+    {
+      "id": "ladder-to-mem",
+      "from": "ponytail_ladder",
+      "to": "reflexion_memory",
+      "label": "query lessons",
+      "variant": "emphasis"
+    },
+    {
+      "id": "graph-to-blast",
+      "from": "code_graph",
+      "to": "blast_radius",
+      "label": "index symbols",
+      "variant": "default"
+    },
+    {
+      "id": "ladder-to-blast",
+      "from": "ponytail_ladder",
+      "to": "blast_radius",
+      "label": "inspect scope",
+      "variant": "default"
+    },
+    {
+      "id": "blast-to-tdd",
+      "from": "blast_radius",
+      "to": "tdd_runner",
+      "label": "target tests",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tdd-to-sandbox",
+      "from": "tdd_runner",
+      "to": "sandbox_test",
+      "label": "execute tests",
+      "variant": "default"
+    },
+    {
+      "id": "sandbox-to-store",
+      "from": "sandbox_test",
+      "to": "reflexion_store",
+      "label": "distill fixes",
+      "variant": "dashed"
+    },
+    {
+      "id": "tdd-to-gate",
+      "from": "tdd_runner",
+      "to": "pre_push_gate",
+      "label": "all green",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gate-to-commit",
+      "from": "pre_push_gate",
+      "to": "git_commit",
+      "label": "passed",
+      "variant": "emphasis"
+    },
+    {
+      "id": "store-to-toolmaker",
+      "from": "reflexion_store",
+      "to": "toolmaker_distill",
+      "label": "track patterns",
+      "variant": "dashed"
+    },
+    {
+      "id": "toolmaker-to-rules",
+      "from": "toolmaker_distill",
+      "to": "agents_rules",
+      "label": "promote rules",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Dual Shield Architecture",
+      "items": [
+        "Pre-execution: Ponytail YAGNI ladder & AST Blast-Radius analysis",
+        "Post-execution: TDD offline sandbox verification & Pre-Push Security Gatekeeper"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Continuous Evolution Engine",
+      "items": [
+        "Self-healing reflexion logs failure post-mortems into SQLite FTS5 database",
+        "Operations repeated >= 3 times automatically synthesize into zero-dependency CLI tools"
+      ]
+    }
+  ]
+}

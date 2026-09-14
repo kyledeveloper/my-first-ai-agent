@@ -43,7 +43,7 @@ flowchart TB
 ```
 
 <p align="center">
-  <sub>Interactive live architecture view: <a href="reflexion-memory-architecture.html">reflexion-memory-architecture.html</a> (supports dark/light theme, trace motion & full-canvas pan/zoom)</sub>
+  <sub>Interactive live diagrams: <a href="agent-workflow.html">Agent Operational Workflow</a> | <a href="reflexion-memory-architecture.html">Reflexion Memory Engine</a> (supports dark/light theme, trace motion & full-canvas pan/zoom)</sub>
 </p>
 
 ---

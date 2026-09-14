@@ -1,0 +1,357 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "自主 AI Agent 端到端全流程运行图谱",
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "full-cycle",
+        "label": "全生命周期闭环",
+        "focus": [
+          "user_intent",
+          "ponytail_ladder",
+          "reflexion_memory",
+          "blast_radius",
+          "tdd_runner",
+          "pre_push_gate",
+          "toolmaker_distill"
+        ],
+        "note": "从用户意图分析、爆炸半径分析、TDD 红绿自愈、安全守门到自工具长效进化的完整闭环"
+      },
+      {
+        "id": "perception-planning",
+        "label": "感知与极简决策",
+        "focus": [
+          "user_intent",
+          "ponytail_ladder",
+          "reflexion_memory",
+          "blast_radius"
+        ],
+        "note": "执行前智能：Ponytail 7阶 YAGNI 决策阶梯、历史反思教训 FTS5 召回与 AST 爆炸半径计算"
+      },
+      {
+        "id": "execution-quality",
+        "label": "执行与安全防线",
+        "focus": [
+          "tdd_runner",
+          "sandbox_test",
+          "pre_push_gate",
+          "git_commit"
+        ],
+        "note": "沙盒内零 Token 消耗的红绿重构自愈循环，以及 Push 前硬编码凭证与高危依赖拦截"
+      },
+      {
+        "id": "self-evolution",
+        "label": "资产沉淀与自我进化",
+        "focus": [
+          "sandbox_test",
+          "reflexion_store",
+          "toolmaker_distill",
+          "agents_rules"
+        ],
+        "note": "失败后自愈经验提炼至 SQLite 记忆库，高频操作自动合成极简 CLI 脚本资产"
+      }
+    ],
+    "output": "agent-workflow-zh.html",
+    "locale": "zh-CN"
+  },
+  "lanes": [
+    {
+      "id": "intent_lane",
+      "label": "意图理解与极简决策层"
+    },
+    {
+      "id": "perception_lane",
+      "label": "代码感知与影响分析层"
+    },
+    {
+      "id": "quality_lane",
+      "label": "质量闭环与安全守门层",
+      "variant": "exception"
+    },
+    {
+      "id": "evolution_lane",
+      "label": "资产沉淀与自我进化层"
+    }
+  ],
+  "phases": [
+    {
+      "id": "intake_phase",
+      "label": "接收与规划",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "verify_phase",
+      "label": "影响与验证",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "delivery_phase",
+      "label": "交付与沉淀",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "mindset_grp",
+      "label": "YAGNI 极简与记忆检索",
+      "lane": "intent_lane",
+      "fromCol": 0,
+      "toCol": 1,
+      "variant": "emphasis"
+    },
+    {
+      "id": "analysis_grp",
+      "label": "AST 调用图与爆炸半径",
+      "lane": "perception_lane",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "default"
+    },
+    {
+      "id": "quality_grp",
+      "label": "TDD 驱动与守门人巡检",
+      "lane": "quality_lane",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "security"
+    },
+    {
+      "id": "asset_grp",
+      "label": "反思知识库与自工具工厂",
+      "lane": "evolution_lane",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "user_intent",
+    "ponytail_ladder",
+    "blast_radius",
+    "tdd_runner",
+    "pre_push_gate",
+    "git_commit"
+  ],
+  "nodes": [
+    {
+      "id": "user_intent",
+      "lane": "intent_lane",
+      "col": 0,
+      "type": "external",
+      "label": "用户需求输入",
+      "sublabel": "新功能或Bug报告",
+      "width": 120
+    },
+    {
+      "id": "ponytail_ladder",
+      "lane": "intent_lane",
+      "col": 1,
+      "type": "backend",
+      "label": "Ponytail 过滤器",
+      "sublabel": "7阶 YAGNI 阶梯",
+      "tag": "原生标准库优先",
+      "width": 120
+    },
+    {
+      "id": "reflexion_memory",
+      "lane": "intent_lane",
+      "col": 2,
+      "type": "database",
+      "label": "历史经验召回",
+      "sublabel": "FTS5 三维衰减匹配",
+      "tag": "防重复踩坑",
+      "width": 120
+    },
+    {
+      "id": "blast_radius",
+      "lane": "perception_lane",
+      "col": 2,
+      "type": "backend",
+      "label": "AST 爆炸半径",
+      "sublabel": "分析波及调用方与测试",
+      "tag": "防崩重构预案",
+      "width": 120
+    },
+    {
+      "id": "code_graph",
+      "lane": "perception_lane",
+      "col": 1,
+      "type": "backend",
+      "label": "符号依赖图谱",
+      "sublabel": "提取导入导出与AST",
+      "width": 120
+    },
+    {
+      "id": "tdd_runner",
+      "lane": "quality_lane",
+      "col": 3,
+      "type": "security",
+      "label": "TDD 驱动循环",
+      "sublabel": "红-绿-重构闭环",
+      "tag": "本地沙盒执行",
+      "width": 120
+    },
+    {
+      "id": "sandbox_test",
+      "lane": "quality_lane",
+      "col": 2,
+      "type": "messagebus",
+      "label": "离线沙盒验证",
+      "sublabel": "零额外Token损耗",
+      "width": 120
+    },
+    {
+      "id": "pre_push_gate",
+      "lane": "quality_lane",
+      "col": 4,
+      "type": "security",
+      "label": "Pre-Push 守门人",
+      "sublabel": "拦截密钥/CVE/代码异味",
+      "tag": "阻断违规提交",
+      "width": 120
+    },
+    {
+      "id": "git_commit",
+      "lane": "quality_lane",
+      "col": 5,
+      "type": "backend",
+      "label": "本地安全提交",
+      "sublabel": "已校验待发布状态",
+      "tag": "用户自主Push",
+      "width": 120
+    },
+    {
+      "id": "reflexion_store",
+      "lane": "evolution_lane",
+      "col": 3,
+      "type": "database",
+      "label": "反思知识库",
+      "sublabel": "SQLite WAL 经验表",
+      "width": 120
+    },
+    {
+      "id": "toolmaker_distill",
+      "lane": "evolution_lane",
+      "col": 4,
+      "type": "backend",
+      "label": "动态自造工具",
+      "sublabel": "频次>=3自动合成CLI",
+      "tag": "runner.js 分发",
+      "width": 120
+    },
+    {
+      "id": "agents_rules",
+      "lane": "evolution_lane",
+      "col": 5,
+      "type": "external",
+      "label": "AGENTS.md 准则",
+      "sublabel": "高频教训固化为准则",
+      "width": 120
+    }
+  ],
+  "edges": [
+    {
+      "id": "intent-to-ladder",
+      "from": "user_intent",
+      "to": "ponytail_ladder",
+      "variant": "default"
+    },
+    {
+      "id": "ladder-to-mem",
+      "from": "ponytail_ladder",
+      "to": "reflexion_memory",
+      "label": "检索避坑经验",
+      "variant": "emphasis"
+    },
+    {
+      "id": "graph-to-blast",
+      "from": "code_graph",
+      "to": "blast_radius",
+      "label": "解析依赖拓扑",
+      "variant": "default"
+    },
+    {
+      "id": "ladder-to-blast",
+      "from": "ponytail_ladder",
+      "to": "blast_radius",
+      "label": "评估修改范围",
+      "variant": "default"
+    },
+    {
+      "id": "blast-to-tdd",
+      "from": "blast_radius",
+      "to": "tdd_runner",
+      "label": "锁定回归测试",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tdd-to-sandbox",
+      "from": "tdd_runner",
+      "to": "sandbox_test",
+      "label": "驱动单元测试",
+      "variant": "default"
+    },
+    {
+      "id": "sandbox-to-store",
+      "from": "sandbox_test",
+      "to": "reflexion_store",
+      "label": "沉淀自愈反思",
+      "variant": "dashed"
+    },
+    {
+      "id": "tdd-to-gate",
+      "from": "tdd_runner",
+      "to": "pre_push_gate",
+      "label": "测试全绿通过",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gate-to-commit",
+      "from": "pre_push_gate",
+      "to": "git_commit",
+      "label": "巡检无误",
+      "variant": "emphasis"
+    },
+    {
+      "id": "store-to-toolmaker",
+      "from": "reflexion_store",
+      "to": "toolmaker_distill",
+      "label": "追踪高频操作",
+      "variant": "dashed"
+    },
+    {
+      "id": "toolmaker-to-rules",
+      "from": "toolmaker_distill",
+      "to": "agents_rules",
+      "label": "提炼通用规则",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "双重防护网架构",
+      "items": [
+        "执行前防线：Ponytail YAGNI 极简阶梯与 AST 爆炸半径影响面评估",
+        "执行后防线：TDD 离线沙盒自愈闭环与 Pre-Push 密钥/CVE 静态安全门禁"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "持续进化资产引擎",
+      "items": [
+        "遇到测试报错与排查时，将根因与避坑策略持久化至 SQLite FTS5 记忆库",
+        "高频重复执行的操作（>=3次）自动由 Self-Toolmaker 合成为免外部依赖的 CLI 脚本资产"
+      ]
+    }
+  ]
+}

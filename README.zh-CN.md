@@ -43,7 +43,7 @@ flowchart TB
 ```
 
 <p align="center">
-  <sub>交互式在线全景展板：<a href="reflexion-memory-architecture-zh.html">reflexion-memory-architecture-zh.html</a>（支持明暗主题切换、Trace Motion 动态流光粒子与画布缩放平移）</sub>
+  <sub>交互式在线动态图谱：<a href="agent-workflow-zh.html">Agent 全流程运行图谱</a> | <a href="reflexion-memory-architecture-zh.html">反思记忆引擎架构</a>（支持明暗主题切换、Trace Motion 动态流光粒子与画布缩放平移）</sub>
 </p>
 
 ---
