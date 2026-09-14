@@ -194,7 +194,7 @@ class AgentLoop {
     args = [],
     target = null,
     exec = false,
-    recordOnFailure = true
+    recordOnFailure = false
   } = {}) {
     const planned = this.plan(intent, { target });
 
@@ -211,7 +211,6 @@ class AgentLoop {
     let recorded = null;
 
     if (!result.ok && recordOnFailure) {
-      const prior = planned.lessons[0];
       const errorSignature = String(result.stderr || '')
         .split('\n')
         .find(l => l.includes('Error') || l.includes('fail') || l.includes('invalid')) || '';
@@ -222,9 +221,7 @@ class AgentLoop {
         root_cause: errorSignature
           ? `Tool "${chosen}" failed: ${errorSignature.trim().slice(0, 150)} (status ${result.status})`
           : `Tool "${chosen}" exited with status ${result.status}`,
-        corrective_heuristic: prior
-          ? prior.corrective_heuristic
-          : `Inspect stderr for ${chosen}, fix the root cause, then re-run the agent loop.`,
+        corrective_heuristic: `Inspect stderr for ${chosen} and record a diagnosed lesson with reflect(); this auto-record is not a root-cause analysis.`,
         status: 'failure',
         domain_tags: ['agent-loop', chosen]
       });
@@ -294,6 +291,7 @@ Options:
   --db <path>         Override memory database path
   --root <path>       Project root (default: repository root)
   --json              Machine-readable output
+  --record-failure    Opt in to writing a stub reflection on non-zero exit (off by default)
   --help, -h          Show this help
 `);
 }
@@ -407,7 +405,7 @@ function main() {
         args: passthrough,
         target: args.target || null,
         exec: !!args.exec || !!args.tool,
-        recordOnFailure: args['record-failure'] !== 'false'
+        recordOnFailure: !!args['record-failure']
       });
       printRun(report, json);
       process.exit(report.executed && report.result && !report.result.ok ? report.result.status : 0);

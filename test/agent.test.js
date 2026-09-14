@@ -80,19 +80,26 @@ assert.strictEqual(successRun.result.ok, true);
 assert.strictEqual(successRun.recorded, null, 'successful runs should not write a failure reflection');
 console.log('✓ Test 5 Passed: run() executes the chosen tool and skips reflect on success.');
 
-// Test 6: failed run writes a reflexion record that later plan() can retrieve
+// Test 6: failed run does not pollute memory unless recordOnFailure is opted in
+const silentFail = loop.run('always fails for loop tests', { tool: 'fail-tool' });
+assert.strictEqual(silentFail.executed, true);
+assert.strictEqual(silentFail.result.ok, false);
+assert.strictEqual(silentFail.recorded, null, 'stub failures must not be written by default');
+
 const statsBefore = mem.stats();
 const failedRun = loop.run('always fails for loop tests', { tool: 'fail-tool', recordOnFailure: true });
 assert.strictEqual(failedRun.executed, true);
 assert.strictEqual(failedRun.result.ok, false);
 assert.strictEqual(failedRun.result.status, 2);
-assert.ok(failedRun.recorded && failedRun.recorded.id, 'failure should record a reflection');
+assert.ok(failedRun.recorded && failedRun.recorded.id, 'opt-in failure should record a reflection');
 assert.strictEqual(failedRun.recorded.reinforced, false);
 assert.strictEqual(mem.stats().reflectionCount, statsBefore.reflectionCount + 1);
 
-const planFail = loop.plan('fail-tool simulated-failure');
-assert.ok(planFail.lessons.some(l => l.trigger_pattern === 'tool:fail-tool'), 'recorded failure must be retrievable');
-console.log('✓ Test 6 Passed: failed execution is written back into reflexion memory.');
+const planFail = loop.plan('tool:fail-tool simulated-failure');
+const failLesson = planFail.lessons.find(l => l.trigger_pattern === 'tool:fail-tool');
+assert.ok(failLesson, 'opt-in recorded failure must be retrievable');
+assert.ok(!failLesson.corrective_heuristic.includes('native addons'), 'must not copy an unrelated prior heuristic');
+console.log('✓ Test 6 Passed: failed execution is written back into reflexion memory only when opted in.');
 
 // Test 7: reflect() records an explicit post-mortem and is searchable
 const reflected = loop.reflect({

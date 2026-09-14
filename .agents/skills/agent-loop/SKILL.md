@@ -45,7 +45,7 @@ Arguments after `--` are passed to the tool as an argv array (no shell interpola
 
 `--exec` without `--tool` runs the tool only when **exactly one** suggestion matches.
 
-A non-zero exit is automatically written to reflexion memory (`trigger_pattern = tool:<name>`). Diagnose and overwrite with a proper post-mortem via `reflect` when you know the root cause.
+A non-zero exit is **not** written to memory by default. Opt in with `--record-failure`, then overwrite the stub via `reflect` once you know the root cause. Never copy an unrelated prior lesson into the heuristic.
 
 ---
 
