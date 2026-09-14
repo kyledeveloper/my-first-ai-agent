@@ -8,6 +8,17 @@ An autonomous, self-improving AI Agent workspace engineered with **Long-Term Ref
 
 ---
 
+## System Architecture
+
+<p align="center">
+  <img src="docs/architecture.svg" alt="System Architecture Diagram" width="100%" />
+</p>
+<p align="center">
+  <sub>Interactive live version: <a href="reflexion-memory-architecture.html">reflexion-memory-architecture.html</a> (supports dark/light theme, trace motion & full-canvas pan/zoom)</sub>
+</p>
+
+---
+
 ## Architecture & Capabilities
 
 1. **Long-Term Reflexive Memory (`src/memory/`)**:

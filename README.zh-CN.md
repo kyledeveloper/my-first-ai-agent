@@ -8,6 +8,17 @@
 
 ---
 
+## 系统全景架构图 (System Architecture)
+
+<p align="center">
+  <img src="docs/architecture-zh.svg" alt="系统架构全景图" width="100%" />
+</p>
+<p align="center">
+  <sub>交互式在线版本：<a href="reflexion-memory-architecture-zh.html">reflexion-memory-architecture-zh.html</a>（支持明暗主题切换、Trace Motion 动态流光粒子与画布缩放平移）</sub>
+</p>
+
+---
+
 ## 核心架构与专属能力
 
 1. **长期经验反思记忆（`src/memory/`）**：
