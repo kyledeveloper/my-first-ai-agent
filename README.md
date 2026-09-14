@@ -1,37 +1,77 @@
 # My First AI Agent
 
-Workspace and configuration for my first AI agent, including custom Agent skills, plugins, self-toolmaking scripts, and memory.
+<p align="left">
+  <b>English</b> | <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-## Structure
-- `.agents/`: Agent configurations, skills, plugins, memory database, and synthesized scripts.
-  - `skills/archify`: Architecture and diagramming skill.
-  - `skills/i18n`: Internationalization and localization skill (LobeHub i18n standards).
-  - `skills/reflexion-memory`: Long-term episodic memory & anti-mistake retrieval skill.
-  - `skills/self-toolmaker`: Self-toolmaking and script asset management skill.
-  - `plugins/context-mode`: Project-level context optimization MCP plugin.
-  - `scripts/`: Project-specific synthesized CLI tools.
-    - `runner.js`: Unified tool dispatcher.
-    - `registry.json`: Tool manifest and parameter catalog.
-    - `audit-locales.js`: Automated multi-language key alignment audit tool.
-  - `memory.db`: SQLite database storing historical episodes, reflections, and tool candidates.
-- `src/memory/`: Long-Term Reflexive Memory engine (powered by Node.js native `node:sqlite` + FTS5).
-  - `schema.sql`: Database schema for episodes, reflections, and FTS5 search index.
-  - `db.js`: Database connection & initialization layer.
-  - `reflexion.js`: Distills cause-and-effect lessons and prevents duplicates.
-  - `retriever.js`: CJK + Latin bi-gram full-text search with token-efficient prompt formatting.
-  - `index.js`: Unified programmatic interface and CLI runner.
-- `src/toolmaker/`: Self-Toolmaking & Script Assets Engine.
-  - `schema.sql`: Schema for recurring pattern tracking.
-  - `tracker.js`: Task frequency accumulation & threshold trigger.
-  - `synthesizer.js`: Generates, validates, and registers standard CLI scripts.
-  - `registry.js`: Tool catalog manager.
-  - `index.js`: Main toolmaker interface.
-- `src/i18n.js`: Runtime i18n configuration based on `i18next`.
-- `locales/`: Multi-language translation packs (`zh-CN`, `en-US`).
-- `examples/`:
-  - `demo.js`: Interactive multi-language demo.
-  - `demo_memory.js`: Memory retrieval and experience seeding demo.
-  - `demo_toolmaker.js`: Self-toolmaking end-to-end demo.
-- `test/`:
-  - `memory.test.js`: Comprehensive unit tests for LTM engine.
-  - `toolmaker.test.js`: Comprehensive unit tests for Self-Toolmaker engine.
+An autonomous, self-improving AI Agent workspace engineered with **Long-Term Reflexive Memory**, **Dynamic Self-Toolmaking**, **Context Optimization (MCP)**, and **Multi-Language Internationalization**.
+
+---
+
+## Architecture & Capabilities
+
+1. **Long-Term Reflexive Memory (`src/memory/`)**:
+   - Stores historical trajectories, failure patterns, root causes, and corrective heuristics instead of static document chunks.
+   - Built on native `node:sqlite` (WAL mode + FTS5 full-text indexing) with zero external native compilation dependencies.
+   - Multi-dimensional scoring ranking by Relevance ($\alpha=0.5$), Recency exponential decay ($\beta=0.2$), and Importance ($\gamma=0.3$).
+2. **Dynamic Self-Toolmaker (`src/toolmaker/` & `.agents/scripts/`)**:
+   - Tracks recurring command patterns; automatically synthesizes robust Node.js CLI tools when an operation is performed $\ge 3$ times.
+   - Unified dispatcher: `node .agents/scripts/runner.js <tool-name> [args]`.
+3. **Context Optimization (`.agents/plugins/context-mode`)**:
+   - Scoped project plugin running `context-mode` MCP server to save token consumption on complex tasks.
+4. **Interactive Architecture Visualization (`archify`)**:
+   - Interactive SVG/HTML system topology maps with light/dark themes and animated trace flows.
+5. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
+   - Professional `i18next` integration supporting dynamic switching, locale key audit, and adaptive CLI output.
+
+---
+
+## Directory Structure
+
+```text
+.
+├── .agents/
+│   ├── plugins/context-mode/       # Project-isolated MCP server configuration
+│   ├── scripts/                    # Synthesized CLI tool assets (runner.js, audit-locales.js)
+│   ├── skills/                     # Agent behavioral skills (archify, reflexion-memory, self-toolmaker, i18n)
+│   └── memory.db                   # SQLite persistent episodic & reflective memory database
+├── locales/                        # Internationalization locale packs (en-US, zh-CN)
+├── src/
+│   ├── memory/                     # Reflexion Long-Term Memory engine & FTS5 retriever
+│   ├── toolmaker/                  # Pattern tracking and CLI script synthesis engine
+│   └── i18n.js                     # Runtime i18next configuration
+├── examples/                       # Interactive runnable system demos
+├── test/                           # Automated test suites
+├── AGENTS.md                       # Authoritative project rules and behavioral guidelines
+├── README.md                       # English documentation
+└── README.zh-CN.md                 # Chinese documentation
+```
+
+---
+
+## Quickstart
+
+### 1. Run Automated Test Suites
+```bash
+node test/memory.test.js
+node test/toolmaker.test.js
+```
+
+### 2. Query Long-Term Memory
+```bash
+node src/memory/index.js search "install sqlite native addons in sandbox"
+```
+
+### 3. Run Synthesized Project Tools
+```bash
+# List all synthesized project tools
+node .agents/scripts/runner.js --list
+
+# Run locale audit tool with automatic language adaptation
+node .agents/scripts/runner.js audit-locales
+```
+
+---
+
+## License
+MIT

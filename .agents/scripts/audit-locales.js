@@ -7,11 +7,13 @@
  * Usage:
  *   node .agents/scripts/audit-locales.js [options]
  *   node .agents/scripts/audit-locales.js --base locales/zh-CN --target locales/en-US
+ *   node .agents/scripts/audit-locales.js --lang zh-CN
  *   node .agents/scripts/audit-locales.js --json
  */
 
 const fs = require('fs');
 const path = require('path');
+const i18n = require(path.resolve(__dirname, '../../src/i18n'));
 
 function printHelp() {
   console.log(`
@@ -21,11 +23,13 @@ Description: Audit and compare translation keys across locale files (e.g., zh-CN
 Parameters:
   --base             Base locale directory (default: locales/zh-CN)
   --target           Target locale directory to compare against (default: locales/en-US)
+  --lang             Output language for CLI messages: en-US | zh-CN (default: auto-detected from $LANG)
   --help             Show this help message
   --json             Output result as raw JSON
 
 Usage Examples:
   node .agents/scripts/audit-locales.js --base locales/zh-CN --target locales/en-US
+  node .agents/scripts/audit-locales.js --lang zh-CN
   node .agents/scripts/audit-locales.js --json
 `);
 }
@@ -78,6 +82,14 @@ async function run() {
     process.exit(0);
   }
 
+  // Detect and set CLI display language via i18n
+  const systemLang = process.env.LANG || process.env.LANGUAGE || '';
+  const selectedLang = args.lang
+    ? (args.lang.startsWith('zh') ? 'zh-CN' : 'en-US')
+    : (systemLang.includes('zh') ? 'zh-CN' : 'en-US');
+
+  i18n.changeLanguage(selectedLang);
+
   try {
     const baseDir = path.resolve(process.cwd(), args.base || 'locales/zh-CN');
     const targetDir = path.resolve(process.cwd(), args.target || 'locales/en-US');
@@ -127,16 +139,16 @@ async function run() {
     if (args.json) {
       console.log(JSON.stringify(report, null, 2));
     } else {
-      console.log(`=== 🌐 Locale Key Audit Result (${report.baseLocale} ➔ ${report.targetLocale}) ===`);
-      console.log(`Files Audited: ${report.filesAudited}`);
+      console.log(i18n.t('cli.audit.header', { base: report.baseLocale, target: report.targetLocale }));
+      console.log(i18n.t('cli.audit.files_audited', { count: report.filesAudited }));
       if (report.discrepancies.length === 0) {
-        console.log('✅ All locale keys are 100% synchronized with zero missing entries.');
+        console.log(i18n.t('cli.audit.all_aligned'));
       } else {
-        console.log(`⚠️ Found ${report.discrepancies.length} discrepancy item(s):`);
+        console.log(i18n.t('cli.audit.discrepancies_found', { count: report.discrepancies.length }));
         for (const d of report.discrepancies) {
-          console.log(`  • File: ${d.file}`);
-          if (d.missingInTarget) console.log(`    Missing Keys: ${d.missingInTarget.join(', ')}`);
-          if (d.extraInTarget) console.log(`    Extra Keys: ${d.extraInTarget.join(', ')}`);
+          console.log(i18n.t('cli.audit.file', { file: d.file }));
+          if (d.missingInTarget) console.log(i18n.t('cli.audit.missing_keys', { keys: d.missingInTarget.join(', ') }));
+          if (d.extraInTarget) console.log(i18n.t('cli.audit.extra_keys', { keys: d.extraInTarget.join(', ') }));
         }
       }
     }

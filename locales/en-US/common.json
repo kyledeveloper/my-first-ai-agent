@@ -5,5 +5,12 @@
   "common.language": "Current Language: English",
   "action.save": "Save",
   "action.cancel": "Cancel",
-  "action.submit": "Submit"
+  "action.submit": "Submit",
+  "cli.audit.header": "=== 🌐 Locale Key Audit Result ({{base}} ➔ {{target}}) ===",
+  "cli.audit.files_audited": "Files Audited: {{count}}",
+  "cli.audit.all_aligned": "✅ All locale keys are 100% synchronized with zero missing entries.",
+  "cli.audit.discrepancies_found": "⚠️ Found {{count}} discrepancy item(s):",
+  "cli.audit.file": "  • File: {{file}}",
+  "cli.audit.missing_keys": "    Missing Keys: {{keys}}",
+  "cli.audit.extra_keys": "    Extra Keys: {{keys}}"
 }

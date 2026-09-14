@@ -5,5 +5,12 @@
   "common.language": "当前语言：中文",
   "action.save": "保存",
   "action.cancel": "取消",
-  "action.submit": "提交"
+  "action.submit": "提交",
+  "cli.audit.header": "=== 🌐 多语言包审计结果 ({{base}} ➔ {{target}}) ===",
+  "cli.audit.files_audited": "审计文件数: {{count}}",
+  "cli.audit.all_aligned": "✅ 所有语言包 Key 100% 对齐，无缺失项！",
+  "cli.audit.discrepancies_found": "⚠️ 发现 {{count}} 处不一致:",
+  "cli.audit.file": "  • 文件: {{file}}",
+  "cli.audit.missing_keys": "    缺失 Key: {{keys}}",
+  "cli.audit.extra_keys": "    多余 Key: {{keys}}"
 }
