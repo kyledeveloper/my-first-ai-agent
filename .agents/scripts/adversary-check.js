@@ -33,48 +33,87 @@ class AdversaryAuditor {
     }
   }
 
+  parseDiffFiles(diffText) {
+    if (!diffText || typeof diffText !== 'string') return [];
+    const chunks = diffText.split(/(?=^diff --git )/m);
+    const files = [];
+
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
+      const headerMatch = chunk.match(/^diff --git\s+(?:a\/\S+|"(?:\\.|[^"])+")\s+(?:b\/(\S+)|"b\/((?:\\.|[^"])+)")/m);
+      if (headerMatch) {
+        const filePath = headerMatch[1] || headerMatch[2];
+        files.push({ filePath, content: chunk });
+      } else {
+        files.push({ filePath: '', content: chunk });
+      }
+    }
+    return files;
+  }
+
   auditDiff(diffText) {
     const findings = [];
+    const fileChunks = this.parseDiffFiles(diffText);
 
-    // 1. Check for tests mutating real .git without os.tmpdir
-    const testGitMutation = /\+\s*const\s+\w+\s*=\s*path\.resolve\(__dirname,\s*['"]\.\.\/\.git/m;
-    if (testGitMutation.test(diffText)) {
-      findings.push({
-        severity: 'CRITICAL',
-        lens: 'Hermetic Test Isolation',
-        message: 'Direct reference to real .git/ in test path detected. Must use os.tmpdir() + fs.mkdtempSync() instead.'
-      });
-    }
+    for (const { filePath, content } of fileChunks) {
+      // 0. Skip self-referential auditor test files/fixtures
+      if (filePath && (filePath.includes('adversary.test.js') || filePath.includes('adversary-check.test.js'))) {
+        continue;
+      }
 
-    // 2. Check for multi-table database write operations missing transaction
-    const hasMultipleInserts = (diffText.match(/\.prepare\(['"]\s*INSERT INTO/gi) || []).length > 1;
-    const hasTransaction = /transaction\s*\(/i.test(diffText);
-    if (hasMultipleInserts && !hasTransaction) {
-      findings.push({
-        severity: 'WARNING',
-        lens: 'ACID Transaction Completeness',
-        message: 'Multiple INSERT statements found without obvious transaction() wrapping. Ensure atomic rollback.'
-      });
-    }
+      const isTest = filePath ? (filePath.startsWith('test/') || filePath.includes('.test.') || filePath.includes('.spec.')) : true;
+      const isSrc = filePath ? filePath.startsWith('src/') : true;
+      const isScriptOrSrc = filePath ? (filePath.startsWith('src/') || filePath.startsWith('.agents/scripts/')) : true;
 
-    // 3. Check for overly greedy secret regex without word/token boundary
-    const greedySecretRegex = /\+\s*.*regex:\s*\/(?:sk|ghp|gho)-\[a-zA-Z0-9\]/m;
-    if (greedySecretRegex.test(diffText)) {
-      findings.push({
-        severity: 'CRITICAL',
-        lens: 'Regex Boundary & False-Positive Defense',
-        message: 'Greedy token regex lacking prefix boundary (e.g. (?<![A-Za-z0-9_-])). May cause false positives.'
-      });
-    }
+      // 1. Check for tests mutating real .git without os.tmpdir (only in test files)
+      if (isTest) {
+        const testGitMutation = /\+\s*const\s+\w+\s*=\s*path\.resolve\(__dirname,\s*['"]\.\.\/\.git/m;
+        if (testGitMutation.test(content)) {
+          findings.push({
+            severity: 'CRITICAL',
+            lens: 'Hermetic Test Isolation',
+            message: `Direct reference to real .git/ in test path detected in ${filePath || 'diff'}. Must use os.tmpdir() + fs.mkdtempSync() instead.`
+          });
+        }
+      }
 
-    // 4. Check for staged runtime artifacts (.db, .html in diff headers)
-    const trackedArtifacts = /diff --git a\/(?:.*(?:\.db|\.sqlite|\.html|memory\.db))/i;
-    if (trackedArtifacts.test(diffText)) {
-      findings.push({
-        severity: 'WARNING',
-        lens: 'VCS & Artifact Hygiene',
-        message: 'Tracked runtime database or generated HTML file detected in diff. Verify .gitignore.'
-      });
+      // 2. Check for multi-table database write operations missing transaction (only in production code)
+      if (isSrc) {
+        const hasMultipleInserts = (content.match(/\.prepare\(['"]\s*INSERT INTO/gi) || []).length > 1;
+        const hasTransaction = /transaction\s*\(/i.test(content);
+        if (hasMultipleInserts && !hasTransaction) {
+          findings.push({
+            severity: 'WARNING',
+            lens: 'ACID Transaction Completeness',
+            message: `Multiple INSERT statements found without obvious transaction() wrapping in ${filePath || 'diff'}. Ensure atomic rollback.`
+          });
+        }
+      }
+
+      // 3. Check for overly greedy secret regex without word/token boundary (only in src/scripts)
+      if (isScriptOrSrc) {
+        const greedySecretRegex = /\+\s*.*regex:\s*\/(?:sk|ghp|gho)-\[a-zA-Z0-9\]/m;
+        if (greedySecretRegex.test(content)) {
+          findings.push({
+            severity: 'CRITICAL',
+            lens: 'Regex Boundary & False-Positive Defense',
+            message: `Greedy token regex lacking prefix boundary in ${filePath || 'diff'} (e.g. (?<![A-Za-z0-9_-])). May cause false positives.`
+          });
+        }
+      }
+
+      // 4. Check for staged runtime artifacts (.db, .html in diff headers)
+      const isTrackedArtifact = filePath
+        ? /(?:\.db|\.sqlite|\.html|memory\.db)$/i.test(filePath)
+        : /^diff --git a\/(?:.*(?:\.db|\.sqlite|\.html|memory\.db))/im.test(content);
+
+      if (isTrackedArtifact) {
+        findings.push({
+          severity: 'WARNING',
+          lens: 'VCS & Artifact Hygiene',
+          message: `Tracked runtime database or generated HTML file detected: ${filePath || 'diff header'}. Verify .gitignore.`
+        });
+      }
     }
 
     return {

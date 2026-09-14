@@ -45,4 +45,17 @@ assert.strictEqual(r4.passed, true);
 assert.strictEqual(r4.findings.length, 0);
 console.log('✓ Test 4 Passed: Clean diff passes auditor with zero findings.');
 
-console.log('\nAll 4 Adversarial Auditor tests passed successfully! 🎉');
+// Test 5: Skips self-referential fixtures inside test/adversary.test.js
+const selfReferentialDiff = `
+diff --git a/test/adversary.test.js b/test/adversary.test.js
++ const testGitDiff = 'path.resolve(__dirname, "../.git/hooks")';
++ const badRegex = 'regex: /sk-[a-zA-Z0-9]{20,}/';
++ const tracked = 'diff --git a/agent-workflow.html b/agent-workflow.html';
+`;
+const r5 = auditor.auditDiff(selfReferentialDiff);
+assert.strictEqual(r5.passed, true, 'Should not fail on self-referential auditor test fixtures');
+assert.strictEqual(r5.findings.length, 0);
+console.log('✓ Test 5 Passed: Auditor ignores test fixture lines inside test/adversary.test.js.');
+
+console.log('\nAll 5 Adversarial Auditor tests passed successfully! 🎉');
+
