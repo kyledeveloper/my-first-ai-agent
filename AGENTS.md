@@ -34,3 +34,12 @@
 - **Macro Vision Term Interception (Hard Stop on Coding)**: Whenever a user prompt contains broad, unbounded macro terms (e.g., "build an e-commerce mall", "create a blog system", "build a social platform", "make an admin dashboard", "做一个商城/博客/社区/管理后台"), the AI Agent is **strictly prohibited from writing implementation code immediately**.
 - **Interactive Socratic Interview (`/grill-me` & `ask_question`)**: The Agent must trigger a requirement discovery interview (channeling `/grill-me` via `ask_question` or structured multi-choice inquiry) to interrogate and clarify ambiguous assumptions, technical boundaries, core MVP scopes (v0.1 slicing), and business logic until the user's intent is deterministic and actionable.
 - **Visual Blueprint First (`archify`)**: Once requirements and user stories are clarified, for any complex business logic, state transitions, or multi-step workflows, the Agent must first compile and deliver an interactive `archify` diagram (workflow/lifecycle HTML) for user visual confirmation and sign-off **before** initiating TDD red-green implementation.
+
+## Adversarial Dual-Agent Review Policy (红蓝对抗独立审查准则)
+- **No Self-Approval for Core Changes**: When authoring or refactoring sensitive architectural components (`src/memory/`, `src/graph/`, `src/agent/`, `.agents/scripts/`), the authoring Agent (Blue Team) is strictly prohibited from self-approving commits without adversarial inspection.
+- **Cold-Eye Auditor Lens**: The Agent must run `node .agents/scripts/runner.js adversary-check --staged` or invoke an isolated auditor subagent to inspect the pending diff across the Four Cold-Eye Lenses:
+  1. **ACID Transactions**: Multi-step DB writes must be encapsulated in atomic transactions with zero risk of partial or orphaned records.
+  2. **Hermetic Test Isolation**: Tests must never mutate real `.git/` or workspace configs; temporary directories must be isolated via `os.tmpdir()`.
+  3. **Regex Boundary Defenses**: Secret matching and tokenization patterns must use strict word/token boundaries (`\b` or negative lookarounds) to prevent false-positive regressions.
+  4. **VCS & Artifact Hygiene**: Runtime database files, ephemeral HTML/SVG renders, and credentials must be kept out of version control via `.gitignore`.
+- **Fail-Closed Remediation Loop**: Any `[CRITICAL]` violation flagged by the auditor must be resolved and verified before a local `git commit` is permitted.

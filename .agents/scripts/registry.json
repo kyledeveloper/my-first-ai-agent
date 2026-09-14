@@ -83,6 +83,28 @@
         "--target calculateScore --json"
       ],
       "registeredAt": "2026-09-14T06:37:00.000Z"
+    },
+    "adversary-check": {
+      "name": "adversary-check",
+      "description": "Adversarial Red-Team Code Auditor: scans diffs for missing transactions, non-hermetic tests, greedy regexes, and dirty VCS artifacts",
+      "scriptPath": ".agents/scripts/adversary-check.js",
+      "args": [
+        {
+          "name": "staged",
+          "description": "Audit staged git diff instead of latest commit",
+          "default": false
+        },
+        {
+          "name": "json",
+          "description": "Output machine-readable JSON format",
+          "default": false
+        }
+      ],
+      "examples": [
+        "--staged",
+        "--json"
+      ],
+      "registeredAt": "2026-09-14T16:57:02.392Z"
     }
   }
 }

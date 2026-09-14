@@ -93,6 +93,8 @@ flowchart TB
     - Intercepts macro, unbounded vision terms ("make an e-commerce mall") with a hard coding stop; conducts interactive Socratic interviews (`/grill-me` & `ask_question`) to establish deterministic MVP boundaries, paired with `archify` visual diagrams for user sign-off prior to TDD.
 11. **Unified Agent Loop (`src/agent/`)**:
     - Single pipeline that actually uses the pillars: `plan` retrieves reflexion memory and suggests synthesized tools; `run` executes a registry tool and writes non-zero exits back into memory; `reflect` stores a diagnosed post-mortem.
+12. **Adversarial Code Review (`.agents/skills/adversarial-review/` & `adversary-check.js`)**:
+    - Red-blue dual-agent protocol enforcing cold-eye, independent review across ACID transactions, hermetic test isolation in `os.tmpdir()`, false-positive boundary defenses, and VCS hygiene before committing.
 
 ---
 
