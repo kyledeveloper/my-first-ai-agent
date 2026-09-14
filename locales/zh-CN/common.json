@@ -25,5 +25,13 @@
   "cli.gatekeeper.complexity_warning": "⚠️ 发现 {{count}} 个文件存在代码异味或复杂度超标：",
   "cli.gatekeeper.sensitive_files_failed": "❌ 严重安全拦截：检测到敏感配置文件（.env、私钥文件）！已阻止 Git Push。",
   "cli.gatekeeper.sensitive_files_passed": "✅ 未发现敏感凭据文件（.env、私钥等）。",
-  "cli.gatekeeper.all_passed": "🎉 所有 Pre-Push 守门人检查通过！可以安全推送到远程仓库。"
+  "cli.gatekeeper.all_passed": "🎉 所有 Pre-Push 守门人检查通过！可以安全推送到远程仓库。",
+  "cli.blast.header": "=== 💥 代码符号图谱与修改影响面分析 (Blast Radius) ===",
+  "cli.blast.target": "分析目标: {{target}} (类型: {{type}})",
+  "cli.blast.risk_level": "风险评估: {{level}} (风险分: {{score}}/100)",
+  "cli.blast.direct_impact": "1 阶直接波及模块数 ({{count}}):",
+  "cli.blast.indirect_impact": "N 阶间接传递波及模块数 ({{count}}):",
+  "cli.blast.impacted_tests": "受波及测试套件 (必须回归验证): {{count}} 个",
+  "cli.blast.no_impact": "✅ 未发现下游依赖方，本次为安全隔离修改。",
+  "cli.blast.safety_plan_header": "📋 重构前防崩安全预案:"
 }

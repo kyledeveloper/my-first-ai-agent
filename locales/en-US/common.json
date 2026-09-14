@@ -25,5 +25,13 @@
   "cli.gatekeeper.complexity_warning": "⚠️ Code smell detected in {{count}} file(s):",
   "cli.gatekeeper.sensitive_files_failed": "❌ Sensitive files detected! (.env, private keys). Pushing is blocked.",
   "cli.gatekeeper.sensitive_files_passed": "✅ No sensitive credential files (.env, private keys) found.",
-  "cli.gatekeeper.all_passed": "🎉 All pre-push checks passed! Ready to push."
+  "cli.gatekeeper.all_passed": "🎉 All pre-push checks passed! Ready to push.",
+  "cli.blast.header": "=== 💥 Code Symbol Graph & Blast-Radius Analysis ===",
+  "cli.blast.target": "Target: {{target}} (Type: {{type}})",
+  "cli.blast.risk_level": "Risk Assessment: {{level}} (Score: {{score}}/100)",
+  "cli.blast.direct_impact": "Directly Impacted Modules ({{count}}):",
+  "cli.blast.indirect_impact": "Indirect Transitive Modules ({{count}}):",
+  "cli.blast.impacted_tests": "Impacted Test Suites (Must verify): {{count}}",
+  "cli.blast.no_impact": "✅ No downstream dependents found. Safe isolated change.",
+  "cli.blast.safety_plan_header": "📋 Pre-Refactoring Safety Action Plan:"
 }

@@ -30,6 +30,8 @@ node .agents/scripts/runner.js <tool-name> [options]
   - Usage: `node .agents/scripts/runner.js audit-locales [--base locales/zh-CN] [--target locales/en-US] [--json]`
 - **`pre-push-check`**: Security & quality gatekeeper running before `git push` to intercept hardcoded secrets, flag high-risk CVEs, and alert on code smell/complexity.
   - Usage: `node .agents/scripts/runner.js pre-push-check [--lang zh-CN|en-US] [--strict] [--json]`
+- **`blast-radius`**: Code Symbol Graph & Blast-Radius analysis to evaluate impact scope, downstream modules, and affected tests before refactoring.
+  - Usage: `node .agents/scripts/runner.js blast-radius --target <fileOrSymbol> [--tree] [--json] [--lang zh-CN|en-US]`
 
 ---
 

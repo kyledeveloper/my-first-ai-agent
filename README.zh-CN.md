@@ -27,6 +27,8 @@
    * 严格贯彻 Red-Green-Refactor 研发准则；新功能与 Bug 修复前必须先编写复现断言测试。沙盒内零外部网络执行，零多余 Token 损耗。
 7. **Pre-Push 安全与代码异味守门人（`pre-push-check`）**：
    * 严守“仅在 `git push` 前触发”的铁律（通过 `.git/hooks/pre-push` 或 CLI 触发），硬性拦截硬编码 API Key/Token，审计依赖高危漏洞，预警函数过长与过深嵌套。
+8. **深度代码符号图谱与修改影响面分析（`src/graph/` & `blast-radius.js`）**：
+   * 零外部网络依赖的 AST 符号依赖图谱引擎。精准量化直接与间接波及模块（爆炸半径），自动圈定受影响测试套件，并生成防崩重构预案。
 
 ---
 
@@ -36,13 +38,14 @@
 .
 ├── .agents/
 │   ├── plugins/context-mode/       # 项目私有 MCP 插件配置
-│   ├── scripts/                    # 沉淀的自造 CLI 脚本资产 (runner.js, audit-locales.js)
-│   ├── skills/                     # Agent 专属技能库 (archify, reflexion-memory, self-toolmaker, i18n)
+│   ├── scripts/                    # 沉淀的自造 CLI 脚本资产 (runner.js, audit-locales.js, blast-radius.js)
+│   ├── skills/                     # Agent 专属技能库 (archify, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
 │   └── memory.db                   # SQLite 持久化经验与反思数据库
 ├── locales/                        # 多语言字典资源包 (en-US, zh-CN)
 ├── src/
 │   ├── memory/                     # 反思记忆引擎与 FTS5 检索引擎
 │   ├── toolmaker/                  # 高频模式嗅探与 CLI 工具合成引擎
+│   ├── graph/                      # 符号图谱与爆炸半径分析引擎
 │   └── i18n.js                     # i18next 运行时配置
 ├── examples/                       # 可交互运行的演练示例
 ├── test/                           # 自动化测试用例套件
@@ -69,6 +72,9 @@ node src/memory/index.js search "在沙盒中安装原生模块"
 ```bash
 # 查看所有已沉淀的自造工具清单
 node .agents/scripts/runner.js --list
+
+# 重构或修改代码前：评估文件或函数符号的“爆炸半径”
+node .agents/scripts/runner.js blast-radius --target src/memory/db.js --tree
 
 # 运行 Pre-Push 安全与代码异味守门人巡检
 node .agents/scripts/runner.js pre-push-check

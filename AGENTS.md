@@ -25,3 +25,7 @@
 - **Push-Time Gatekeeper Execution**: The security gatekeeper (`.agents/scripts/pre-push-check.js`) is triggered **strictly prior to `git push`** via the `.git/hooks/pre-push` hook or manually via `node .agents/scripts/runner.js pre-push-check`.
 - **Hard Block on Sensitive Secrets**: Any unpushed commit containing hardcoded API keys (e.g., OpenAI, GitHub tokens, AWS keys, private keys) will be hard-blocked (exit code 1) from being pushed to remote repositories.
 - **Dependency & Code Smell Advisories**: Automatically scans for high/critical CVEs via `npm audit` and flags code smell indicators (functions >80 lines, nesting depth >4) before pushing.
+
+## Pre-Refactoring Blast-Radius Analysis Policy
+- **Impact Assessment First**: Before modifying or refactoring existing core modules or exported functions in `src/`, the AI Agent should evaluate the blast radius using `node .agents/scripts/runner.js blast-radius --target <fileOrSymbol>`.
+- **Targeted Test Execution**: After completing refactorings, verify all impacted test suites identified by the blast radius report to guarantee zero regressions across downstream callers.

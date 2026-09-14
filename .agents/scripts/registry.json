@@ -50,6 +50,39 @@
         "--json"
       ],
       "registeredAt": "2026-09-14T06:22:00.000Z"
+    },
+    "blast-radius": {
+      "name": "blast-radius",
+      "description": "Code Symbol Graph & Blast-Radius analysis: evaluate impact scope and affected tests before refactoring",
+      "scriptPath": ".agents/scripts/blast-radius.js",
+      "args": [
+        {
+          "name": "target",
+          "description": "Target file path or symbol identifier to analyze",
+          "default": null
+        },
+        {
+          "name": "tree",
+          "description": "Render hierarchical ASCII dependency tree",
+          "default": false
+        },
+        {
+          "name": "json",
+          "description": "Output machine-readable JSON format",
+          "default": false
+        },
+        {
+          "name": "lang",
+          "description": "Output language: en-US | zh-CN",
+          "default": "auto"
+        }
+      ],
+      "examples": [
+        "--target src/memory/db.js",
+        "--target MemoryDatabase --tree",
+        "--target calculateScore --json"
+      ],
+      "registeredAt": "2026-09-14T06:37:00.000Z"
     }
   }
 }
