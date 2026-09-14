@@ -8,13 +8,42 @@ An autonomous, self-improving AI Agent workspace engineered with **Long-Term Ref
 
 ---
 
-## System Architecture
+## Agent Capability Matrix (Five Pillars)
+
+```mermaid
+flowchart TB
+    subgraph P1["1. Mindset & Discipline"]
+        PT["Ponytail Minimalist Philosophy<br>(YAGNI / Stdlib & Native First / One-Liners)"]
+        LP["Tiered Language Guidelines<br>(English Code & Tests / Bilingual Docs)"]
+    end
+
+    subgraph P2["2. Perception & Topology"]
+        CG["AST Code Symbol Graph<br>(code-graph / Symbol Dependencies & Callers)"]
+        BR["Refactoring Blast-Radius<br>(Impact Analysis / Affected Test Targeting)"]
+    end
+
+    subgraph P3["3. Visual Architecture"]
+        ARCH["archify Visualization Engine<br>(Interactive Topology / Trace Motion / Export)"]
+    end
+
+    subgraph P4["4. Quality & Security Guard"]
+        TDD["TDD & Self-Healing Loop<br>(Red-Green-Refactor / Offline Sandbox Verification)"]
+        SEC["Pre-Push Security Gatekeeper<br>(Credential Leak Blocking / CVE Audit / Code Smells)"]
+    end
+
+    subgraph P5["5. Lifelong Evolution & Assets"]
+        MEM["Long-Term Reflexive Memory<br>(reflexion-memory / FTS5 + 3D Recency Decay)"]
+        STM["Dynamic Self-Toolmaker<br>(self-toolmaker / High-Frequency Operation CLI)"]
+    end
+
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P4 --> P5
+```
 
 <p align="center">
-  <img src="docs/architecture.svg" alt="System Architecture Diagram" width="100%" />
-</p>
-<p align="center">
-  <sub>Interactive live version: <a href="reflexion-memory-architecture.html">reflexion-memory-architecture.html</a> (supports dark/light theme, trace motion & full-canvas pan/zoom)</sub>
+  <sub>Interactive live architecture view: <a href="reflexion-memory-architecture.html">reflexion-memory-architecture.html</a> (supports dark/light theme, trace motion & full-canvas pan/zoom)</sub>
 </p>
 
 ---

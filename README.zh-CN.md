@@ -8,13 +8,42 @@
 
 ---
 
-## 系统全景架构图 (System Architecture)
+## Agent 完整能力矩阵总览（五大支柱）
+ 
+```mermaid
+flowchart TB
+    subgraph P1["一、极简决策与心智 (Mindset & Discipline)"]
+        PT["Ponytail 极简哲学<br>(YAGNI / 原生标准库优先 / 单行解决)"]
+        LP["分层多语言工程准则<br>(代码英语 / 文档双语 / 对话自适应)"]
+    end
+
+    subgraph P2["二、感知雷达与拓扑图谱 (Perception & Topology)"]
+        CG["AST 代码符号依赖图谱<br>(code-graph / 调用链与引用解析)"]
+        BR["重构爆炸半径分析<br>(Blast-Radius / 自动锁死受影响测试)"]
+    end
+
+    subgraph P3["三、架构翻译与交互可视化 (Visual Architecture)"]
+        ARCH["archify 架构渲染引擎<br>(动态粒子Trace Motion / 明暗主题 / 多格式导出)"]
+    end
+
+    subgraph P4["四、质量闭环与安全防线 (Quality & Safety Gatekeeper)"]
+        TDD["TDD 驱动与自愈闭环<br>(Red-Green-Refactor / 离线零Token沙盒)"]
+        SEC["Pre-Push 守门人<br>(8大云厂商密钥拦截 / 依赖CVE审计 / 复杂度异味)"]
+    end
+
+    subgraph P5["五、资产沉淀与长效自进化 (Lifelong Evolution & Assets)"]
+        MEM["长效反思记忆库<br>(reflexion-memory / FTS5+三维衰减检索)"]
+        STM["动态自工具工厂<br>(self-toolmaker / 高频>=3次自动合成轻量CLI)"]
+    end
+
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P4 --> P5
+```
 
 <p align="center">
-  <img src="docs/architecture-zh.svg" alt="系统架构全景图" width="100%" />
-</p>
-<p align="center">
-  <sub>交互式在线版本：<a href="reflexion-memory-architecture-zh.html">reflexion-memory-architecture-zh.html</a>（支持明暗主题切换、Trace Motion 动态流光粒子与画布缩放平移）</sub>
+  <sub>交互式在线全景展板：<a href="reflexion-memory-architecture-zh.html">reflexion-memory-architecture-zh.html</a>（支持明暗主题切换、Trace Motion 动态流光粒子与画布缩放平移）</sub>
 </p>
 
 ---
