@@ -1,79 +1,42 @@
 ---
 name: i18n
-description: 'Use for user-facing strings and react-i18next locale keys, namespaces, interpolation, translations or bun run i18n.'
+description: Project CLI locale strings in locales/{en-US,zh-CN}/common.json and src/i18n.js. Use when adding or changing user-facing CLI text, translation keys, interpolation, or running audit-locales.
 user-invocable: false
 ---
 
-# LobeHub Internationalization Guide
+# Project i18n
 
-- Default language: English (en-US)
-- Framework: react-i18next
-- **Only edit files in `packages/locales/src/default/`** - Never edit JSON files in `locales/` (except hand-written en-US/zh-CN previews)
-- Leave generated locales to the daily `auto-i18n.yml` workflow by default; run `bun run i18n` manually only when they are needed immediately
+This repo is **not** LobeHub / react-i18next / bun. CLI scripts under `.agents/scripts/` load `src/i18n.js` (i18next + JSON dictionaries). `$LANG` or `--lang` selects `zh-CN` vs `en-US`.
 
-## Key Naming Convention
+## Files
 
-**Flat keys with dot notation** (not nested objects):
+| Path | Role |
+| :--- | :--- |
+| `src/i18n.js` | Detects language, inits i18next, defaultNS `common` |
+| `locales/en-US/common.json` | English keys (source of truth for new keys) |
+| `locales/zh-CN/common.json` | Chinese keys — same key set, 100% in sync |
+| `.agents/scripts/audit-locales.js` | Diff the two dictionaries |
 
-```typescript
-// ✅ Correct
-export default {
-  'alert.cloud.action': 'Try Now',
-  'sync.actions.sync': 'Sync Now',
-  'sync.status.ready': 'Connected',
-};
+Do **not** edit `packages/locales/`, `locales/` generated trees, or call `bun run i18n`. Those paths do not exist here.
 
-// ❌ Avoid nested objects
-export default {
-  alert: { cloud: { action: '...' } },
-};
+## Key rules
+
+- Flat keys with dots: `cli.blast.target`, `action.save`
+- Interpolation: `{{name}}` — `i18n.t('cli.audit.file', { file: 'x.json' })`
+- Add the key to **both** JSON files in the same change
+- Keep `en-US` and `zh-CN` key sets identical; run the auditor after edits
+
+```bash
+node .agents/scripts/runner.js audit-locales
+node .agents/scripts/runner.js audit-locales --json
 ```
 
-**Patterns:** `{feature}.{context}.{action|status}`
+## Usage in CLI scripts
 
-**Parameters:** Use `{{variableName}}` syntax
-
-```typescript
-'alert.cloud.desc': 'We provide {{credit}} credits',
+```javascript
+const i18n = require('../../src/i18n');
+i18n.changeLanguage(lang); // 'en-US' | 'zh-CN'
+console.log(i18n.t('cli.blast.header'));
 ```
 
-**Avoid key conflicts:**
-
-```typescript
-// ❌ Conflict
-'clientDB.solve': 'Self Resolve',
-'clientDB.solve.backup.title': 'Data Backup',
-
-// ✅ Solution
-'clientDB.solve.action': 'Self Resolve',
-'clientDB.solve.backup.title': 'Data Backup',
-```
-
-## Workflow
-
-1. Add keys to `packages/locales/src/default/{namespace}.ts`
-2. Export new namespace in `packages/locales/src/default/index.ts`
-3. For dev preview: manually translate `locales/zh-CN/{namespace}.json` and `locales/en-US/{namespace}.json`
-4. Leave all other locales to `.github/workflows/auto-i18n.yml`, which runs daily and opens an automated translation PR
-5. Run `bun run i18n` manually only when the branch needs those translations immediately; it is slow and requires `OPENAI_API_KEY`
-
-## Usage
-
-```tsx
-import { useTranslation } from 'react-i18next';
-
-const { t } = useTranslation('common');
-
-t('newFeature.title');
-t('alert.cloud.desc', { credit: '1000' });
-
-// Multiple namespaces
-const { t } = useTranslation(['common', 'chat']);
-t('common:save');
-```
-
-## Common Namespaces
-
-**Most used:** `common` (shared UI), `chat` (chat features), `setting` (settings)
-
-Others: auth, changelog, components, discover, editor, electron, error, file, hotkey, knowledgeBase, memory, models, plugin, portal, providers, tool, topic
+Host-agent chat language follows `AGENTS.md` (match the user). Code identifiers stay English.
