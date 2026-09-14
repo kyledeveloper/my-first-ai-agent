@@ -20,11 +20,11 @@
 > **“最稳健、最少 Bug 的代码，是根本无需被写出的代码；把重复交给机器，把确定性留给人类。”**
 
 本项目将 AI 编程从不可控的“抽卡式生成”升维为工程级的确定性装配，由五大系统支柱深度驱动：
-1. **极简主义决策心智（`Ponytail`）**：严格遵循 7 阶 YAGNI 阶梯，原生标准库优先、单行优先，从源头剔除冗余代码；
+1. **极简主义决策心智（[`Ponytail`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：严格遵循 7 阶 YAGNI 阶梯，原生标准库优先、单行优先，从源头剔除冗余代码；
 2. **代码感知与影响面雷达（`AST & Blast-Radius`）**：修改前瞬间解析依赖拓扑，预判波及模块并精确圈定受影响测试；
 3. **确定性质检与安全防线（`TDD 沙盒自愈` + `Pre-Push 守门人`）**：本地离线沙盒红绿驱动（0 Token 消耗），Push 前硬性拦截凭证泄露与高危依赖；
-4. **经验沉淀与持续进化（`Reflexion Memory` + `Self-Toolmaker`）**：SQLite FTS5 记忆库主动召回历史教训，高频操作（$\ge 3$次）自动合成免依赖 CLI 脚本；
-5. **架构透明与交互呈现（`Archify`）**：一键将运行轨迹与依赖拓扑编译为高颜值、带动态流光粒子的交互式单页图谱。
+4. **经验沉淀与持续进化（[`Reflexion Memory`](https://arxiv.org/abs/2303.11366) + `Self-Toolmaker`）**：SQLite FTS5 记忆库主动召回历史教训，高频操作（$\ge 3$次）自动合成免依赖 CLI 脚本；
+5. **架构透明与交互呈现（[`Archify`](https://github.com/tt-a1i/archify)，作者：tt-a1i）**：一键将运行轨迹与依赖拓扑编译为高颜值、带动态流光粒子的交互式单页图谱。
 
 ---
 
@@ -79,9 +79,9 @@ flowchart TB
    * 统一资产分发器：`node .agents/scripts/runner.js <tool-name> [args]`。
 3. **上下文优化（`.agents/plugins/context-mode`）**：
    * 项目级隔离配置的 `context-mode` MCP 服务，大幅减少工具调用中的输出噪音与 Token 消耗。
-4. **交互式架构可视化（`archify`）**：
+4. **交互式架构可视化（[`archify`](https://github.com/tt-a1i/archify)，作者：tt-a1i）**：
    * 支持明暗主题、动态轨迹（Trace Motion）的独立交互式 SVG/HTML 架构全景图，提供多格式无损导出能力。
-5. **Ponytail 极简编码心智哲学（`.agents/skills/ponytail/`）**：
+5. **Ponytail 极简编码心智哲学（[`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：
    * 严格执行 7 阶必要性阶梯（YAGNI、代码库复用、标准库优先、原生特性优先、已装依赖优先、单行优先）。坚决剔除过度抽象，同时严格守牢边界校验、错误处理与安全底线。
 6. **分层多语言国际化（`src/i18n.js` & `locales/`）**：
    * 基于 `i18next` 运行时，支持字典 100% 对齐审计、运行时自适应切换与 CLI 工具多语言输出。

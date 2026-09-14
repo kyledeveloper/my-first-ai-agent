@@ -20,11 +20,11 @@ Most modern AI coding assistants act merely as "smart typists"—often introduci
 > **"The cleanest, most reliable code is the code that never had to be written. Hand repetitive friction to machines, and reserve certainty for humans."**
 
 This agent transforms coding from unpredictable "probabilistic generation" into deterministic, production-grade assembly with five integrated pillars:
-1. **Minimalist Decision Mindset (`Ponytail`)**: Enforces a 7-rung necessity ladder (YAGNI, stdlib & native first) to eliminate bloat.
+1. **Minimalist Decision Mindset ([`Ponytail`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**: Enforces a 7-rung necessity ladder (YAGNI, stdlib & native first) to eliminate bloat.
 2. **Code Awareness Radar (`AST & Blast-Radius`)**: Computes exact downstream callers and affected test suites before modifying code.
 3. **Deterministic Quality & Security (`TDD Sandbox` + `Pre-Push Gatekeeper`)**: Executes Red-Green-Refactor tests in local offline sandboxes (0 token overhead) and hard-blocks secret leaks.
-4. **Lifelong Evolution (`Reflexion Memory` + `Self-Toolmaker`)**: Distills post-mortem lessons into SQLite FTS5 memory and synthesizes repetitive commands ($\ge 3$ times) into CLI assets.
-5. **Architectural Transparency (`Archify`)**: Renders reactive, interactive visual blueprints with animated trace motion for instant team alignment.
+4. **Lifelong Evolution ([`Reflexion Memory`](https://arxiv.org/abs/2303.11366) + `Self-Toolmaker`)**: Distills post-mortem lessons into SQLite FTS5 memory and synthesizes repetitive commands ($\ge 3$ times) into CLI assets.
+5. **Architectural Transparency ([`Archify`](https://github.com/tt-a1i/archify) by tt-a1i)**: Renders reactive, interactive visual blueprints with animated trace motion for instant team alignment.
 
 ---
 
@@ -79,9 +79,9 @@ flowchart TB
    - Unified dispatcher: `node .agents/scripts/runner.js <tool-name> [args]`.
 3. **Context Optimization (`.agents/plugins/context-mode`)**:
    - Scoped project plugin running `context-mode` MCP server to save token consumption on complex tasks.
-4. **Interactive Architecture Visualization (`archify`)**:
+4. **Interactive Architecture Visualization ([`archify`](https://github.com/tt-a1i/archify) by tt-a1i)**:
    - Interactive SVG/HTML system topology maps with light/dark themes, animated trace flows, and visual export capabilities.
-5. **Ponytail Minimalist Coding Philosophy (`.agents/skills/ponytail/`)**:
+5. **Ponytail Minimalist Coding Philosophy ([`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**:
    - Enforces a 7-rung necessity ladder (YAGNI, codebase reuse, stdlib first, native platform, installed dependencies, one-line solutions). Rejects unrequested abstractions and premature complexity while strictly preserving security, boundary validation, and error handling.
 6. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
    - Professional `i18next` integration supporting dynamic switching, locale key audit, and adaptive CLI output.
