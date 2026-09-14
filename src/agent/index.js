@@ -16,6 +16,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { LongTermMemory, DEFAULT_DB_PATH } = require('../memory/index');
 const { calculateBlastRadius } = require('../graph/blastRadius');
+const i18n = require('../i18n');
 
 const DEFAULT_REGISTRY = path.join(__dirname, '../../.agents/scripts/registry.json');
 const DEFAULT_ROOT = path.resolve(__dirname, '../../');
@@ -271,29 +272,16 @@ function parseArgs(argv) {
   return args;
 }
 
+function applyLanguage(args = {}) {
+  const selected = args.lang
+    ? (String(args.lang).toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US')
+    : i18n.detectLanguage();
+  i18n.changeLanguage(selected);
+  return selected;
+}
+
 function printUsage() {
-  console.log(`
-Unified Agent Loop
-==================
-Usage:
-  node src/agent/index.js plan    "<intent>" [--target <fileOrSymbol>] [--json]
-  node src/agent/index.js run     "<intent>" [--tool <name> [--exec]] [--target <file>] [--] [tool-args]
-  node src/agent/index.js reflect --intent <text> --trigger <text> --cause <text> --heuristic <text>
-  node src/agent/index.js tools   [--json]
-
-Flow: retrieve memory → suggest/run a synthesized tool → optional blast-radius → record failures.
-
-Options:
-  --tool <name>       Tool to execute (run)
-  --exec              Execute the unique suggested tool when --tool is omitted
-  --target <path>     Blast-radius for this file/symbol (auto --diff --semantic if it has uncommitted changes)
-  --registry <path>   Override tool registry.json
-  --db <path>         Override memory database path
-  --root <path>       Project root (default: repository root)
-  --json              Machine-readable output
-  --record-failure    Opt in to writing a stub reflection on non-zero exit (off by default)
-  --help, -h          Show this help
-`);
+  console.log('\n' + i18n.t('cli.agent.usage') + '\n');
 }
 
 function printPlan(report, json) {
@@ -302,21 +290,21 @@ function printPlan(report, json) {
     return;
   }
 
-  console.log('=== Agent Loop: Plan ===');
-  console.log(`Intent: ${report.intent}`);
+  console.log(i18n.t('cli.agent.plan_header'));
+  console.log(i18n.t('cli.agent.intent', { intent: report.intent }));
   console.log();
 
   if (report.guidance) {
     console.log(report.guidance);
   } else {
-    console.log('No prior reflexion lessons matched this intent.');
+    console.log(i18n.t('cli.agent.no_lessons'));
   }
 
   console.log();
   if (report.suggestedTools.length === 0) {
-    console.log('Suggested tools: (none — pass --tool <name> --exec to run one)');
+    console.log(i18n.t('cli.agent.suggested_none'));
   } else {
-    console.log(`Suggested tools (${report.suggestedTools.length}):`);
+    console.log(i18n.t('cli.agent.suggested_header', { count: report.suggestedTools.length }));
     for (const t of report.suggestedTools) {
       console.log(`  • ${t.name} — ${t.description || ''}`);
     }
@@ -325,14 +313,25 @@ function printPlan(report, json) {
   if (report.blastRadius) {
     const br = report.blastRadius;
     console.log();
-    console.log(`Blast radius: ${br.target} [${br.targetType}]  ${br.riskLevel} (${br.riskScore}/100)`);
+    console.log(i18n.t('cli.agent.blast', {
+      target: br.target,
+      type: br.targetType,
+      level: br.riskLevel,
+      score: br.riskScore
+    }));
     if (br.isDiffAware) {
-      console.log(`  Diff scope: ${br.scope || 'unknown'}${br.notes ? ' — ' + br.notes : ''}`);
+      console.log(i18n.t('cli.agent.diff_scope', {
+        scope: br.scope || 'unknown',
+        notes: br.notes ? ' — ' + br.notes : ''
+      }));
     }
     if (br.semantic) {
-      console.log(`  Semantic: ${br.semantic.overallVerdict} (${br.semantic.mode})`);
+      console.log(i18n.t('cli.agent.semantic', {
+        verdict: br.semantic.overallVerdict,
+        mode: br.semantic.mode
+      }));
     }
-    console.log(`  Direct callers: ${br.directCount}   Impacted tests: ${br.testCount}`);
+    console.log(i18n.t('cli.agent.callers', { direct: br.directCount, tests: br.testCount }));
     if (br.safetyPlan && br.safetyPlan.steps) {
       for (const step of br.safetyPlan.steps) {
         console.log(`  ${step}`);
@@ -349,15 +348,15 @@ function printRun(report, json) {
   printPlan(report, false);
   console.log();
   if (!report.executed) {
-    console.log('No tool executed. Re-run with --tool <name> --exec (or --exec when exactly one tool is suggested).');
+    console.log(i18n.t('cli.agent.no_exec'));
     return;
   }
   const r = report.result;
-  console.log(`Executed: ${r.tool}  (exit ${r.status})`);
+  console.log(i18n.t('cli.agent.executed', { tool: r.tool, status: r.status }));
   if (r.stdout) process.stdout.write(r.stdout.endsWith('\n') ? r.stdout : r.stdout + '\n');
   if (r.stderr) process.stderr.write(r.stderr.endsWith('\n') ? r.stderr : r.stderr + '\n');
   if (report.recorded) {
-    console.log(`Recorded failure reflection: ${report.recorded.id}`);
+    console.log(i18n.t('cli.agent.recorded', { id: report.recorded.id }));
   }
 }
 
@@ -372,6 +371,7 @@ function createLoopFromArgs(args) {
 function main() {
   const { own, passthrough } = splitArgv(process.argv.slice(2));
   const args = parseArgs(own);
+  applyLanguage(args);
 
   if (args.help || args._.length === 0) {
     printUsage();
@@ -386,7 +386,7 @@ function main() {
   try {
     if (command === 'plan') {
       if (!intent) {
-        console.error('plan requires an intent string.');
+        console.error(i18n.t('cli.agent.plan_requires'));
         printUsage();
         process.exit(1);
       }
@@ -396,7 +396,7 @@ function main() {
 
     if (command === 'run') {
       if (!intent) {
-        console.error('run requires an intent string.');
+        console.error(i18n.t('cli.agent.run_requires'));
         printUsage();
         process.exit(1);
       }
@@ -416,7 +416,7 @@ function main() {
       const cause = args.cause || args['root-cause'];
       const heuristic = args.heuristic;
       if (!intent || !trigger || !cause || !heuristic) {
-        console.error('reflect requires --intent, --trigger, --cause, and --heuristic.');
+        console.error(i18n.t('cli.agent.reflect_requires'));
         process.exit(1);
       }
       const recorded = loop.reflect({
@@ -432,8 +432,8 @@ function main() {
         console.log(JSON.stringify(recorded, null, 2));
       } else {
         console.log(recorded.reinforced
-          ? `Reinforced existing reflection: ${recorded.id}`
-          : `Recorded reflection: ${recorded.id}`);
+          ? i18n.t('cli.agent.reinforced', { id: recorded.id })
+          : i18n.t('cli.agent.recorded_ok', { id: recorded.id }));
       }
       process.exit(0);
     }
@@ -443,9 +443,9 @@ function main() {
       if (json) {
         console.log(JSON.stringify({ tools }, null, 2));
       } else {
-        console.log('=== Registered Tools ===');
+        console.log(i18n.t('cli.agent.tools_header'));
         if (tools.length === 0) {
-          console.log('(none)');
+          console.log(i18n.t('cli.agent.tools_none'));
         } else {
           for (const t of tools) {
             console.log(`  • ${t.name} — ${t.description || ''} (${t.scriptPath})`);
@@ -455,7 +455,7 @@ function main() {
       process.exit(0);
     }
 
-    console.error(`Unknown command: ${command}`);
+    console.error(i18n.t('cli.agent.unknown_command', { command }));
     printUsage();
     process.exit(1);
   } finally {

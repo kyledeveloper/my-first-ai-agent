@@ -57,5 +57,32 @@ assert.strictEqual(r5.passed, true, 'Should not fail on self-referential auditor
 assert.strictEqual(r5.findings.length, 0);
 console.log('✓ Test 5 Passed: Auditor ignores test fixture lines inside test/adversary.test.js.');
 
-console.log('\nAll 5 Adversarial Auditor tests passed successfully! 🎉');
+// Test 6: default getDiff scans the working tree vs HEAD, not only HEAD~1..HEAD
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+console.log('Testing default getDiff uses working tree against HEAD...');
+const advRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'adv-diff-'));
+const git = (args) => spawnSync('git', args, { cwd: advRepo, encoding: 'utf8' });
+assert.strictEqual(git(['init']).status, 0);
+git(['config', 'user.email', 'test@example.com']);
+git(['config', 'user.name', 'Test']);
+fs.writeFileSync(path.join(advRepo, 'tracked.js'), 'const v = 1;\n');
+git(['add', '.']);
+assert.strictEqual(git(['commit', '-m', 'one']).status, 0);
+fs.writeFileSync(path.join(advRepo, 'tracked.js'), 'const v = 2;\n');
+git(['add', '.']);
+assert.strictEqual(git(['commit', '-m', 'two']).status, 0);
+fs.writeFileSync(path.join(advRepo, 'tracked.js'), 'const v = "NEW_WORKTREE_MARKER";\n');
+
+const worktreeAuditor = new AdversaryAuditor({ repoRoot: advRepo, staged: false });
+const worktreeDiff = worktreeAuditor.getDiff();
+assert.ok(worktreeDiff.includes('NEW_WORKTREE_MARKER'), 'default scan must include uncommitted working-tree changes');
+assert.ok(!/HEAD~1/.test(worktreeDiff));
+fs.rmSync(advRepo, { recursive: true, force: true });
+console.log('✓ Test 6 Passed: Default adversary diff is git diff HEAD (working tree), not HEAD~1..HEAD.');
+
+console.log('\nAll 6 Adversarial Auditor tests passed successfully! 🎉');
 

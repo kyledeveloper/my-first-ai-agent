@@ -178,7 +178,19 @@ const cliTools = spawnSync(process.execPath, [
 assert.strictEqual(cliTools.status, 0, `CLI tools should exit 0, stderr=${cliTools.stderr}`);
 const listed = JSON.parse(cliTools.stdout.trim());
 assert.ok(listed.tools.some(t => t.name === 'ok-tool'));
-console.log('\nAll 11 Unified Agent Loop tests passed successfully! 🎉');
+console.log('✓ Test 11 Passed: CLI tools --json lists registry entries.');
+
+const cliZh = spawnSync(process.execPath, [
+  cliPath, 'plan', 'no-such-intent-xyz',
+  '--lang', 'zh-CN',
+  '--db', ':memory:'
+], { encoding: 'utf8', cwd: repoRoot, env: { ...process.env, LANG: 'C', LANGUAGE: '', LC_ALL: 'C' } });
+assert.strictEqual(cliZh.status, 0, `CLI zh plan should exit 0, stderr=${cliZh.stderr}`);
+assert.ok(cliZh.stdout.includes('=== Agent Loop：计划 ==='), 'human CLI must follow --lang zh-CN');
+assert.ok(cliZh.stdout.includes('没有与该意图匹配的既有反思经验'));
+console.log('✓ Test 12 Passed: Agent CLI human output uses src/i18n.js.');
+
+console.log('\nAll 12 Unified Agent Loop tests passed successfully! 🎉');
 } finally {
   if (mem) mem.close();
   fs.rmSync(tmp, { recursive: true, force: true });

@@ -26,7 +26,7 @@ class AdversaryAuditor {
     try {
       const cmd = this.staged
         ? 'git diff --cached --unified=3'
-        : 'git diff HEAD~1..HEAD --unified=3';
+        : 'git diff HEAD --unified=3';
       return execSync(cmd, { cwd: this.repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     } catch (e) {
       return '';
