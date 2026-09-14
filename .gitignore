@@ -11,6 +11,11 @@ logs
 *.log
 npm-debug.log*
 
+# Database WAL & temp files
+*.db-journal
+*.db-wal
+*.db-shm
+
 # Environment
 .env
 .env.local

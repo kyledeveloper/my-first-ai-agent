@@ -1,0 +1,93 @@
+const crypto = require('crypto');
+
+class ReflexionEngine {
+  constructor(database) {
+    this.db = database;
+  }
+
+  /**
+   * Distill and store a new reflection from a task experience.
+   */
+  recordExperience({
+    intent,
+    context_summary = '',
+    domain_tags = [],
+    status = 'failure',
+    trigger_pattern,
+    failure_mode = '',
+    root_cause,
+    corrective_heuristic,
+    confidence_score = 1.0
+  }) {
+    if (!intent || !trigger_pattern || !root_cause || !corrective_heuristic) {
+      throw new Error('Missing required fields for reflection (intent, trigger_pattern, root_cause, corrective_heuristic)');
+    }
+
+    // Check if an identical or near-identical trigger already exists to deduplicate
+    const existing = this.db.db.prepare(`
+      SELECT r.id, r.confidence_score, r.hit_count
+      FROM reflections r
+      WHERE r.trigger_pattern = ? OR r.corrective_heuristic = ?
+    `).get(trigger_pattern, corrective_heuristic);
+
+    if (existing) {
+      // Reinforce existing reflection
+      this.db.db.prepare(`
+        UPDATE reflections
+        SET hit_count = hit_count + 1,
+            confidence_score = MIN(1.0, confidence_score + 0.1)
+        WHERE id = ?
+      `).run(existing.id);
+      return { id: existing.id, reinforced: true };
+    }
+
+    const episodeId = `ep_${crypto.randomUUID()}`;
+    const reflectionId = `ref_${crypto.randomUUID()}`;
+    const now = Date.now();
+
+    this.db.insertEpisode({
+      id: episodeId,
+      intent,
+      context_summary,
+      domain_tags,
+      status,
+      created_at: now
+    });
+
+    this.db.insertReflection({
+      id: reflectionId,
+      episode_id: episodeId,
+      intent,
+      trigger_pattern,
+      failure_mode,
+      root_cause,
+      corrective_heuristic,
+      confidence_score,
+      hit_count: 1,
+      domain_tags,
+      created_at: now
+    });
+
+    return { id: reflectionId, episodeId, reinforced: false };
+  }
+
+  /**
+   * Retrieve reflections that have been triggered frequently (e.g. >= 3 times)
+   * to candidate them for promotion to permanent project rules.
+   */
+  getCandidateRules(minHitCount = 3) {
+    const candidates = this.db.db.prepare(`
+      SELECT id, trigger_pattern, failure_mode, root_cause, corrective_heuristic, hit_count
+      FROM reflections
+      WHERE hit_count >= ?
+      ORDER BY hit_count DESC
+    `).all(minHitCount);
+
+    return candidates.map(c => ({
+      ...c,
+      ruleText: `- **[When: ${c.trigger_pattern}]**: ${c.corrective_heuristic} (根因: ${c.root_cause}, 历史规避次数: ${c.hit_count})`
+    }));
+  }
+}
+
+module.exports = { ReflexionEngine };
