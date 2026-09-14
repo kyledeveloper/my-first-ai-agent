@@ -6,6 +6,8 @@
 
 An autonomous, self-improving AI Agent workspace engineered with **Long-Term Reflexive Memory**, **Dynamic Self-Toolmaking**, **Context Optimization (MCP)**, and **Multi-Language Internationalization**.
 
+The five pillars are wired together by a thin **Unified Agent Loop** (`src/agent/`): *retrieve memory → suggest/run a tool → optional blast-radius → record failures*.
+
 ---
 
 ## Why This AI Agent?
@@ -92,7 +94,9 @@ flowchart TB
 9. **Code Symbol Graph & Blast-Radius Analysis (`src/graph/` & `blast-radius.js`)**:
    - Zero-dependency AST and symbol dependency graph engine. Calculates direct/indirect impact scopes, flags affected test suites, and generates actionable pre-refactoring safety plans.
 10. **Ambiguous Intent Clarification Policy (`AGENTS.md`)**:
-   - Intercepts macro, unbounded vision terms ("make an e-commerce mall") with a hard coding stop; conducts interactive Socratic interviews (`/grill-me` & `ask_question`) to establish deterministic MVP boundaries, paired with `archify` visual diagrams for user sign-off prior to TDD.
+    - Intercepts macro, unbounded vision terms ("make an e-commerce mall") with a hard coding stop; conducts interactive Socratic interviews (`/grill-me` & `ask_question`) to establish deterministic MVP boundaries, paired with `archify` visual diagrams for user sign-off prior to TDD.
+11. **Unified Agent Loop (`src/agent/`)**:
+    - Single pipeline that actually uses the pillars: `plan` retrieves reflexion memory and suggests synthesized tools; `run` executes a registry tool and writes non-zero exits back into memory; `reflect` stores a diagnosed post-mortem.
 
 ---
 
@@ -103,10 +107,11 @@ flowchart TB
 ├── .agents/
 │   ├── plugins/context-mode/       # Project-isolated MCP server configuration
 │   ├── scripts/                    # Synthesized CLI tool assets (runner.js, audit-locales.js, blast-radius.js)
-│   ├── skills/                     # Agent behavioral skills (archify, ponytail, reflexion-memory, self-toolmaker, i18n, code-graph)
+│   ├── skills/                     # Agent behavioral skills (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, i18n, code-graph)
 │   └── memory.db                   # SQLite persistent episodic & reflective memory database
 ├── locales/                        # Internationalization locale packs (en-US, zh-CN)
 ├── src/
+│   ├── agent/                      # Unified loop: plan → tool → reflect
 │   ├── memory/                     # Reflexion Long-Term Memory engine & FTS5 retriever
 │   ├── toolmaker/                  # Pattern tracking and CLI script synthesis engine
 │   ├── graph/                      # Symbol graph & blast-radius analysis engine
@@ -132,7 +137,19 @@ npm test
 node src/memory/index.js search "install sqlite native addons in sandbox"
 ```
 
-### 3. Run Synthesized Project Tools
+### 3. Run the Unified Agent Loop
+```bash
+# Retrieve memory + suggest tools (no side effects)
+node src/agent/index.js plan "install sqlite native addon"
+
+# Refactoring: also compute blast-radius
+node src/agent/index.js plan "refactor MemoryDatabase" --target src/memory/db.js
+
+# Execute a synthesized tool through the loop (failures are recorded)
+node src/agent/index.js run "audit locale keys" --tool audit-locales --exec
+```
+
+### 4. Run Synthesized Project Tools
 ```bash
 # List all synthesized project tools
 node .agents/scripts/runner.js --list

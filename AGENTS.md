@@ -16,6 +16,12 @@
 | **Frontend UI Dictionaries** | **Multi-Locale Packs** | Frontend user-facing texts reside in `locales/{locale}/` dictionaries with 100% key synchronization across languages. |
 | **Agent Chat Communication** | **Dynamic Language Match** | In conversational dialogs, strictly match the user's language: reply in Chinese if the user addresses you in Chinese, and reply in English if the user addresses you in English. |
 
+## Unified Agent Loop Policy
+- **Single pipeline**: For any non-trivial task that will run a command or edit `src/`, first call `node src/agent/index.js plan "<intent>"` so reflexion memory and synthesized tools are consulted *before* ad-hoc shell work.
+- **Refactoring**: Include `--target <fileOrSymbol>` so blast-radius is attached to the same plan.
+- **Execution**: Prefer `node src/agent/index.js run "<intent>" --tool <name> --exec` over invoking `.agents/scripts/<name>.js` directly, so a non-zero exit is recorded back into reflexion memory.
+- **Post-mortem**: After diagnosing a failure, run `node src/agent/index.js reflect --intent ... --trigger ... --cause ... --heuristic ...` with a causal heuristic — do not leave the auto-stub as the final lesson.
+
 ## Test-Driven Development (TDD) & Self-Healing Policy
 - **Red-Green-Refactor Flow**: For any new features or bug fixes, always write the reproducing or boundary test case first in `test/` (Red phase) before writing production logic (Green phase).
 - **Offline Sandbox Execution**: All unit and integration tests run entirely inside the local execution environment without network dependencies, ensuring zero external token consumption on passing tests.

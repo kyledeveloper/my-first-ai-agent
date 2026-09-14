@@ -6,6 +6,8 @@
 
 一个具备自主持续进化能力的 AI Agent 工作区，集成了**长期经验反思记忆（Reflexion LTM）**、**动态自造工具系统（Self-Toolmaker）**、**上下文瘦身优化（context-mode MCP）**以及**多语言工程支持（i18n）**。
 
+五大支柱由一层极薄的 **统一 Agent Loop**（`src/agent/`）串起来：*检索记忆 → 建议/执行工具 → 可选爆炸半径 → 失败写回*。
+
 ---
 
 ## 为什么打造这个 AI Agent？(Why This AI Agent?)
@@ -92,7 +94,9 @@ flowchart TB
 9. **深度代码符号图谱与修改影响面分析（`src/graph/` & `blast-radius.js`）**：
    * 零外部网络依赖的 AST 符号依赖图谱引擎。精准量化直接与间接波及模块（爆炸半径），自动圈定受影响测试套件，并生成防崩重构预案。
 10. **大词与模糊意图反向澄清准则（`AGENTS.md`）**：
-   * 严格拦截“做一个商城/博客/社交平台”等宏观大词并实施编码熔断；通过 `/grill-me` 与 `ask_question` 交互式苏格拉底追问确立确定性 MVP 边界，复杂逻辑先出 `archify` 流程图给用户签署确认后再开启 TDD 编码。
+    * 严格拦截“做一个商城/博客/社交平台”等宏观大词并实施编码熔断；通过 `/grill-me` 与 `ask_question` 交互式苏格拉底追问确立确定性 MVP 边界，复杂逻辑先出 `archify` 流程图给用户签署确认后再开启 TDD 编码。
+11. **统一 Agent Loop（`src/agent/`）**：
+    * 把五大支柱串成一条流水线：`plan` 检索反思记忆并建议自造工具；`run` 执行注册工具并把非零退出写回记忆；`reflect` 写入诊断后的经验。
 
 ---
 
@@ -103,10 +107,11 @@ flowchart TB
 ├── .agents/
 │   ├── plugins/context-mode/       # 项目私有 MCP 插件配置
 │   ├── scripts/                    # 沉淀的自造 CLI 脚本资产 (runner.js, audit-locales.js, blast-radius.js)
-│   ├── skills/                     # Agent 专属技能库 (archify, ponytail, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
+│   ├── skills/                     # Agent 专属技能库 (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
 │   └── memory.db                   # SQLite 持久化经验与反思数据库
 ├── locales/                        # 多语言字典资源包 (en-US, zh-CN)
 ├── src/
+│   ├── agent/                      # 统一循环：plan → tool → reflect
 │   ├── memory/                     # 反思记忆引擎与 FTS5 检索引擎
 │   ├── toolmaker/                  # 高频模式嗅探与 CLI 工具合成引擎
 │   ├── graph/                      # 符号图谱与爆炸半径分析引擎
@@ -132,7 +137,19 @@ npm test
 node src/memory/index.js search "在沙盒中安装原生模块"
 ```
 
-### 3. 调用已沉淀的项目自造工具
+### 3. 跑统一 Agent Loop
+```bash
+# 只检索记忆、建议工具（无副作用）
+node src/agent/index.js plan "install sqlite native addon"
+
+# 重构前附带爆炸半径
+node src/agent/index.js plan "refactor MemoryDatabase" --target src/memory/db.js
+
+# 通过 loop 执行已沉淀工具（失败会写回记忆）
+node src/agent/index.js run "audit locale keys" --tool audit-locales --exec
+```
+
+### 4. 调用已沉淀的项目自造工具
 ```bash
 # 查看所有已沉淀的自造工具清单
 node .agents/scripts/runner.js --list

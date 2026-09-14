@@ -85,5 +85,6 @@ if (require.main === module) {
 
 module.exports = {
   LongTermMemory,
-  getMemory
+  getMemory,
+  DEFAULT_DB_PATH
 };
