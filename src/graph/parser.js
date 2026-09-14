@@ -1,6 +1,6 @@
 /**
- * Lightweight Zero-Dependency AST & Token Parser for JavaScript
- * 
+ * Acorn-based AST parser for JavaScript (depends on acorn + acorn-walk).
+ *
  * Extracts imports, exports, symbol declarations, and call sites.
  */
 

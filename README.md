@@ -88,7 +88,7 @@ flowchart TB
 8. **Pre-Push Security Gatekeeper (`.agents/scripts/pre-push-check.js`)**:
    - Automated check executed strictly prior to `git push` (via `.git/hooks/pre-push` or CLI) to intercept hardcoded API keys, audit dependencies, and flag code smell.
 9. **Code Symbol Graph & Blast-Radius Analysis (`src/graph/` & `blast-radius.js`)**:
-   - Zero-dependency AST and symbol dependency graph engine. Calculates direct/indirect impact scopes, flags affected test suites, and generates actionable pre-refactoring safety plans.
+   - Acorn AST and symbol dependency graph (requires `npm install` for `acorn` + `acorn-walk`). Calculates direct/indirect impact scopes, flags affected test suites, and generates actionable pre-refactoring safety plans.
 10. **Ambiguous Intent Clarification Policy (`AGENTS.md`)**:
     - Intercepts macro, unbounded vision terms ("make an e-commerce mall") with a hard coding stop; conducts interactive Socratic interviews (`/grill-me` & `ask_question`) to establish deterministic MVP boundaries, paired with `archify` visual diagrams for user sign-off prior to TDD.
 11. **Unified Agent Loop (`src/agent/`)**:
@@ -124,8 +124,9 @@ flowchart TB
 
 ## Quickstart
 
-### 1. Run Automated Test Suites
+### 1. Install dependencies and run tests
 ```bash
+npm install
 npm test
 ```
 
