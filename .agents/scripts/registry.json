@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "tools": {
+    "audit-locales": {
+      "name": "audit-locales",
+      "description": "快速审计并比对各语言包（如 zh-CN vs en-US）之间的 Key 是否对齐",
+      "scriptPath": ".agents/scripts/audit-locales.js",
+      "args": [
+        {
+          "name": "base",
+          "description": "基准语言目录 (如 locales/zh-CN)",
+          "default": "locales/zh-CN"
+        },
+        {
+          "name": "target",
+          "description": "待对比目标语言目录 (如 locales/en-US)",
+          "default": "locales/en-US"
+        }
+      ],
+      "examples": [
+        "--base locales/zh-CN --target locales/en-US",
+        "--json"
+      ],
+      "registeredAt": "2026-09-14T05:01:14.988Z"
+    }
+  }
+}
