@@ -50,6 +50,14 @@ class LongTermMemory {
     };
   }
 
+  /**
+   * Seed cold-start vetted golden memories
+   */
+  seed() {
+    const { seedDefaultMemories } = require('./seed');
+    return seedDefaultMemories(this);
+  }
+
   close() {
     this.db.close();
   }
@@ -78,8 +86,13 @@ if (require.main === module) {
     console.log(`=== Querying Memory: "${query}" ===`);
     const lessons = mem.query(query);
     console.log(mem.formatPrompt(lessons, { showScores: true }) || 'No prior lessons found.');
+  } else if (command === 'seed') {
+    console.log('=== Seeding Golden Reflexion Memories ===');
+    const seeded = mem.seed();
+    console.log(`Successfully processed ${seeded.length} golden heuristics.`);
+    console.log(mem.stats());
   } else {
-    console.log('Usage: node src/memory/index.js [stats|search <query>]');
+    console.log('Usage: node src/memory/index.js [stats|search <query>|seed]');
   }
 }
 

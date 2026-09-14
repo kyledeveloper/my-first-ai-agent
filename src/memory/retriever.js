@@ -1,3 +1,9 @@
+const STOP_WORDS = new Set([
+  'to', 'in', 'on', 'at', 'for', 'of', 'with', 'by', 'is', 'it', 'as', 'an', 'the', 'and', 'or', 'a',
+  'how', 'can', 'you', 'please', 'make', 'do', 'get', 'set', 'this', 'that', 'from', 'into', 'what',
+  'build', 'create', 'write', 'want', 'need', 'using', 'use', 'like', 'help'
+]);
+
 class ExperienceRetriever {
   constructor(database) {
     this.db = database;
@@ -6,11 +12,13 @@ class ExperienceRetriever {
   /**
    * Tokenize input into search tokens supporting English words, numbers, and CJK (Chinese/Japanese/Korean)
    * bigrams and unigrams for accurate full-text matching without external segmenters.
+   * Filters out high-frequency stop words to prevent broad accidental over-triggering.
    */
   extractTokens(text) {
     if (!text || typeof text !== 'string') return [];
     const clean = text.replace(/[^\p{L}\p{N}_\s-]/gu, ' ').trim();
-    const latin = clean.match(/[a-zA-Z0-9_-]{2,}/g) || [];
+    const latin = (clean.match(/[a-zA-Z0-9_-]{2,}/g) || [])
+      .filter(w => !STOP_WORDS.has(w.toLowerCase()));
     const cjkChars = clean.match(/[\u4e00-\u9fa5]/g) || [];
     const cjkBigrams = [];
     for (let i = 0; i < cjkChars.length - 1; i++) {
@@ -39,7 +47,7 @@ class ExperienceRetriever {
    * Combining token overlap, BM25 rank, and domain tags.
    */
   calcRelevanceScore(row, tokens, domainTags = [], bm25Relative = 0.5) {
-    if (!tokens || tokens.length === 0) return 0.5;
+    if (!tokens || tokens.length === 0) return 0.0;
 
     const targetText = [
       row.intent,
@@ -69,9 +77,13 @@ class ExperienceRetriever {
       } catch (e) {}
     }
 
+    if (tokenRatio === 0 && tagBonus === 0) {
+      return 0.0;
+    }
+
     // Weighted combination of token coverage, BM25 rank relative position, and tag bonus
     const rel = (0.6 * tokenRatio) + (0.2 * bm25Relative) + tagBonus;
-    return Math.min(1.0, Math.max(0.05, rel));
+    return Math.min(1.0, Math.max(0.0, rel));
   }
 
   /**
@@ -227,7 +239,9 @@ class ExperienceRetriever {
     });
 
     scored.sort((a, b) => b.score - a.score);
-    const topResults = scored.slice(0, limit);
+    const topResults = scored
+      .filter(r => r.relScore >= 0.40)
+      .slice(0, limit);
 
     if (autoIncrementHit) {
       for (const item of topResults) {

@@ -1,4 +1,5 @@
 const { getMemory } = require('../src/memory/index');
+const { seedDefaultMemories } = require('../src/memory/seed');
 
 const mem = getMemory();
 
@@ -6,52 +7,38 @@ console.log('====================================================');
 console.log('  🧠 Long-Term Reflexive Memory: System Demo');
 console.log('====================================================\n');
 
-// 1. Seed Real Lesson 1: Native C++ module compilation failure in sandbox
-console.log('📥 Recording Lesson 1: Native C++ module compilation inside sandbox (better-sqlite3)...');
-mem.recordExperience({
-  intent: 'Install npm package with native extensions (e.g. context-mode / better-sqlite3) in sandbox',
-  context_summary: 'macOS arm64, Node 24, IDE sandbox isolation',
-  domain_tags: ['npm', 'native-addons', 'sandbox', 'permissions'],
-  status: 'recovered',
-  importance_score: 0.95,
-  trigger_pattern: 'npm install requiring C++ native compilation (node-gyp rebuild)',
-  failure_mode: 'EPERM: operation not permitted, uv_cwd / scandir build permission denied',
-  root_cause: 'Sandbox environment intercepts system calls and low-level disk writes needed by node-gyp',
-  corrective_heuristic: 'Do not compile native addons inside sandbox; instruct user to install in system terminal or run via npx directly'
-});
-
-// 2. Seed Real Lesson 2: MCP workspace isolation vs global pollution
-console.log('📥 Recording Lesson 2: MCP Server workspace isolation vs global config...');
-mem.recordExperience({
-  intent: 'Configure MCP Server active only in current project (e.g. context-mode)',
-  context_summary: 'Antigravity workspace customization',
-  domain_tags: ['mcp', 'plugin', 'antigravity', 'isolation'],
-  status: 'success',
-  importance_score: 0.85,
-  trigger_pattern: 'User requests enabling MCP plugin exclusively in current project',
-  failure_mode: 'Writing directly to ~/.gemini/config/mcp_config.json affects all global sessions',
-  root_cause: 'Antigravity global config path applies across all workspaces, lacking project scoping',
-  corrective_heuristic: 'Create .agents/plugins/<name>/plugin.json and mcp_config.json in project root to isolate configuration cleanly'
-});
+// 1. Seed Audited Golden Heuristics
+console.log('📥 Seeding 3 vetted golden heuristics into Reflexion Memory...');
+seedDefaultMemories(mem);
 
 console.log('\n📊 Current Memory Database Stats:');
 console.log(mem.stats());
 
-// 3. Simulate pre-task retrieval with 3D weighted scoring
+// 2. Scenario 1: Relevant query on SQLite in sandbox
 console.log('\n----------------------------------------------------');
-console.log('🔍 Scenario 1: Agent receives task "Install sqlite library requiring native compilation"');
+console.log('🔍 Scenario 1: Agent receives task "install better-sqlite3 native compilation"');
 console.log('----------------------------------------------------');
-const query1 = 'install sqlite native compilation addon';
+const query1 = 'install better-sqlite3 native compilation';
 const lessons1 = mem.query(query1, { autoIncrementHit: true });
 console.log(mem.formatPrompt(lessons1, { showScores: true }));
 
+// 3. Scenario 2: Relevant query on MCP plugin isolation
 console.log('\n----------------------------------------------------');
-console.log('🔍 Scenario 2: Agent receives task "Configure project-specific MCP tool without global pollution"');
+console.log('🔍 Scenario 2: Agent receives task "configure MCP server plugin project scope"');
 console.log('----------------------------------------------------');
-const query2 = 'configure project specific MCP tool avoid global pollution';
+const query2 = 'configure MCP server plugin project scope';
 const lessons2 = mem.query(query2, { autoIncrementHit: true });
 console.log(mem.formatPrompt(lessons2, { showScores: true }));
 
+// 4. Scenario 3: Unrelated query to verify zero-pollution
+console.log('\n----------------------------------------------------');
+console.log('🛡️ Scenario 3: Anti-Pollution Verification: "how to build a navigation bar"');
+console.log('----------------------------------------------------');
+const query3 = 'how to build a navigation bar';
+const lessons3 = mem.query(query3);
+console.log(mem.formatPrompt(lessons3, { showScores: true }) || '✅ Zero pollution: No irrelevant heuristics injected.');
+
+// 5. Rule Promotion Check
 console.log('\n----------------------------------------------------');
 console.log('📈 Rule Promotion Candidate Check (Memory Consolidation):');
 console.log('----------------------------------------------------');
@@ -60,4 +47,4 @@ for (const c of candidates) {
   console.log(c.ruleText);
 }
 
-console.log('\n✅ Demo complete! All lessons successfully persisted in .agents/memory.db');
+console.log('\n✅ Demo complete! Reflexion Memory active and unpolluted.');

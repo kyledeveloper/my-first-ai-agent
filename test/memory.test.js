@@ -176,5 +176,28 @@ const leaked = mem.query('unique-rollback-trigger');
 assert.strictEqual(leaked.length, 0, 'rolled-back FTS rows must not be searchable');
 console.log('✓ Test 12 Passed: recordExperience wraps episode/reflection/FTS in one transaction.');
 
+// Test 13: Cold-start golden memories seeding & idempotency
+const freshMem = new LongTermMemory(':memory:');
+const seedResult1 = freshMem.seed();
+assert.strictEqual(seedResult1.length, 3, 'Should seed exactly 3 golden memories');
+assert.strictEqual(freshMem.stats().reflectionCount, 3);
+
+// Idempotent seeding check
+const seedResult2 = freshMem.seed();
+assert.strictEqual(freshMem.stats().reflectionCount, 3, 'Re-seeding should not duplicate records');
+assert.ok(seedResult2.every(r => r.reinforced === true), 'Subsequent seeds should reinforce existing entries');
+console.log('✓ Test 13 Passed: Cold-start golden memory seeding is idempotent.');
+
+// Test 14: Anti-pollution verification on unrelated queries
+const unrelatedResults = freshMem.query('how to build a navigation bar');
+assert.strictEqual(unrelatedResults.length, 0, 'Unrelated queries must return zero results to avoid prompt pollution');
+
+const relevantSqlite = freshMem.query('install better-sqlite3 native compilation');
+assert.ok(relevantSqlite.length > 0, 'Relevant task must retrieve targeted heuristic');
+assert.ok(relevantSqlite[0].corrective_heuristic.includes('node:sqlite'), 'Retrieved heuristic must advise native node:sqlite');
+console.log('✓ Test 14 Passed: Anti-pollution filter prevents unrelated prompt contamination.');
+
+freshMem.close();
 mem.close();
-console.log('\nAll 12 Long-Term Memory tests passed successfully! 🎉');
+console.log('\nAll 14 Long-Term Memory tests passed successfully! 🎉');
+
