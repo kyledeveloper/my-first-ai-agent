@@ -523,12 +523,7 @@ function applySemanticRiskAdjustment(baseReport, semanticReport) {
     return baseReport;
   }
   baseReport.semanticAnalysis = semanticReport;
-  if (!semanticReport.hasBreaking && semanticReport.evaluations.length > 0) {
-    baseReport.riskLevel = 'LOW';
-    baseReport.riskScore = Math.min(20, Math.floor(baseReport.riskScore * 0.3));
-    baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
-      '[SEMANTIC: COMPATIBLE] All downstream call sites are semantically compatible.';
-  } else if (semanticReport.hasBreaking) {
+  if (semanticReport.hasBreaking) {
     baseReport.riskLevel = 'HIGH';
     baseReport.riskScore = Math.max(85, baseReport.riskScore);
     baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
@@ -539,6 +534,14 @@ function applySemanticRiskAdjustment(baseReport, semanticReport) {
         baseReport.safetyPlan.steps.push(`Fix breaking change in ${b.callerFile}: ${b.suggestedRemediation}`);
       }
     }
+  } else if (semanticReport.overallVerdict === 'COMPATIBLE' && semanticReport.evaluations.length > 0) {
+    baseReport.riskLevel = 'LOW';
+    baseReport.riskScore = Math.min(20, Math.floor(baseReport.riskScore * 0.3));
+    baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
+      '[SEMANTIC: COMPATIBLE] All downstream call sites are semantically compatible.';
+  } else if (semanticReport.overallVerdict === 'UNKNOWN') {
+    baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
+      '[SEMANTIC: UNKNOWN] Signatures could not be compared; topology risk is unchanged.';
   }
   return baseReport;
 }

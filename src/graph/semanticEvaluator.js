@@ -441,11 +441,11 @@ function evaluateDestructuredParam(oldParam, newParam) {
  * @param {object} oldSig - Old signature
  * @param {object} newSig - New signature
  * @param {Array<object>} callSites - Call sites in downstream caller
- * @returns {object} { isBreaking: boolean, verdict: 'BREAKING'|'COMPATIBLE', reason: string, suggestedRemediation?: string }
+ * @returns {object} { isBreaking: boolean, verdict: 'BREAKING'|'COMPATIBLE'|'UNKNOWN', reason: string, suggestedRemediation?: string }
  */
 function evaluateStructuralContract(oldSig, newSig, callSites = []) {
   if (!oldSig || !newSig) {
-    return { isBreaking: false, verdict: 'COMPATIBLE', reason: 'Insufficient signature metadata; assuming safe.' };
+    return { isBreaking: false, verdict: 'UNKNOWN', reason: 'Insufficient signature metadata; not assuming compatible.' };
   }
 
   // 1. Check Sync -> Async Transition Trap
@@ -479,16 +479,16 @@ function evaluateStructuralContract(oldSig, newSig, callSites = []) {
   if (newSig.requiredCount > oldSig.requiredCount) {
     const minRequired = newSig.requiredCount;
     const underArityCalls = callSites.filter(cs => cs.argCount < minRequired);
-    if (underArityCalls.length > 0) {
-      const lines = underArityCalls.map(c => `line ${c.line}`).join(', ');
-      const missingParam = newSig.params[oldSig.requiredCount]?.name || 'newParam';
-      return {
-        isBreaking: true,
-        verdict: 'BREAKING',
-        reason: `Added required parameter '${missingParam}' without default value. Caller provides fewer arguments (${underArityCalls[0].argCount} < ${minRequired}) at ${lines}.`,
-        suggestedRemediation: `Provide default value for '${missingParam}' or update caller arguments at ${lines}.`
-      };
-    }
+    const missingParam = newSig.params[oldSig.requiredCount]?.name || 'newParam';
+    const lines = underArityCalls.length > 0
+      ? underArityCalls.map(c => `line ${c.line}`).join(', ')
+      : 'no discovered call sites';
+    return {
+      isBreaking: true,
+      verdict: 'BREAKING',
+      reason: `Added required parameter '${missingParam}' without default value. Caller arity ${underArityCalls.length > 0 ? `(${underArityCalls[0].argCount} < ${minRequired}) at ${lines}` : 'cannot be proven safe (0 call sites)'}.`,
+      suggestedRemediation: `Provide default value for '${missingParam}' or update caller arguments at ${lines}.`
+    };
   }
 
   // 4. Check Removed Parameters
@@ -525,8 +525,8 @@ function evaluateStructuralContract(oldSig, newSig, callSites = []) {
  */
 function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFiles = [], graph = null, options = {}) {
   const evaluations = [];
-  let overallVerdict = 'COMPATIBLE';
   let hasBreaking = false;
+  let hasUnknown = false;
 
   const targetSource = (options.targetSource || (fs.existsSync(targetFile) ? fs.readFileSync(targetFile, 'utf8') : ''));
 
@@ -553,23 +553,13 @@ function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFile
         newSig = extractSignatureFromHunk(targetSource, symbol);
       }
 
-      if (!oldSig) {
-        if (newSig) {
-          oldSig = newSig;
-        } else {
-          oldSig = { name: symbol, isAsync: false, isGenerator: false, params: [], paramCount: 0, requiredCount: 0, hasRest: false };
-        }
-      }
-      if (!newSig) {
-        newSig = oldSig;
-      }
-
       const callSites = extractCallSitesInFile(callerSource, callerAST, symbol, targetFile);
       const finalResult = evaluateStructuralContract(oldSig, newSig, callSites);
 
-      if (finalResult.isBreaking) {
+      if (finalResult.verdict === 'BREAKING') {
         hasBreaking = true;
-        overallVerdict = 'BREAKING';
+      } else if (finalResult.verdict === 'UNKNOWN') {
+        hasUnknown = true;
       }
 
       evaluations.push({
@@ -584,6 +574,8 @@ function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFile
       });
     }
   }
+
+  const overallVerdict = hasBreaking ? 'BREAKING' : (hasUnknown ? 'UNKNOWN' : 'COMPATIBLE');
 
   return {
     isSemanticAware: true,

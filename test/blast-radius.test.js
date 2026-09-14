@@ -971,8 +971,7 @@ module.exports = { check };
   });
 
   assert.strictEqual(report.semanticAnalysis.hasBreaking, false, '0-arg function must not be falsely flagged as BREAKING');
-  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'COMPATIBLE', 'Verdict must be COMPATIBLE');
-  assert.strictEqual(report.riskLevel, 'LOW', 'Risk level should stay LOW for unchanged 0-arg function');
+  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'UNKNOWN', 'No old signature without a diff — do not assume COMPATIBLE');
   console.log('✓ Test 35 Passed: Zero-argument function baseline evaluated without diff does not produce false-positive.');
 } finally {
   fs.rmSync(semZeroDir, { recursive: true, force: true });
@@ -1129,4 +1128,63 @@ assert.strictEqual(asyncReturnCalls[0].isAwaited, true, 'Direct return in async 
 
 console.log('✓ Test 38 Passed: All warning edge cases (strings with commas, balanced parens, deep destructuring, async return propagation) verified.');
 
-console.log('\nAll 38 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+// Test 39: Missing signatures are UNKNOWN, not fail-open COMPATIBLE
+console.log('Testing missing signatures and empty call sites do not fail-open as COMPATIBLE...');
+const missingSig = evaluateStructuralContract(null, {
+  name: 'fn', isAsync: false, isGenerator: false, params: [], paramCount: 0, requiredCount: 0, hasRest: false
+}, []);
+assert.strictEqual(missingSig.verdict, 'UNKNOWN');
+assert.strictEqual(missingSig.isBreaking, false);
+
+const addedRequiredNoCallers = evaluateStructuralContract(
+  {
+    name: 'login', isAsync: false, isGenerator: false,
+    params: [{ name: 'user', hasDefault: false, isRest: false, isDestructured: false, keys: [] }],
+    paramCount: 1, requiredCount: 1, hasRest: false
+  },
+  {
+    name: 'login', isAsync: false, isGenerator: false,
+    params: [
+      { name: 'user', hasDefault: false, isRest: false, isDestructured: false, keys: [] },
+      { name: 'password', hasDefault: false, isRest: false, isDestructured: false, keys: [] }
+    ],
+    paramCount: 2, requiredCount: 2, hasRest: false
+  },
+  []
+);
+assert.strictEqual(addedRequiredNoCallers.verdict, 'BREAKING', 'Required arity increase is breaking even with 0 discovered call sites');
+console.log('✓ Test 39 Passed: Missing signatures are UNKNOWN; required-arity increase with empty call sites is BREAKING.');
+
+// Test 40: Semantic UNKNOWN must not downgrade topology MEDIUM to LOW
+console.log('Testing semantic UNKNOWN does not collapse topology risk to LOW...');
+const semUnknownDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-unknown-'));
+try {
+  const libFile = path.join(semUnknownDir, 'core.js');
+  fs.writeFileSync(libFile, 'function query(sql) { return sql; }\nmodule.exports = { query };\n', 'utf8');
+  for (let i = 1; i <= 3; i++) {
+    fs.writeFileSync(
+      path.join(semUnknownDir, `caller${i}.js`),
+      `const { query } = require('./core');\nquery('select ${i}');\nmodule.exports = { c${i}: true };\n`,
+      'utf8'
+    );
+  }
+  const unknownGraph = new SymbolGraph({ rootDir: semUnknownDir });
+  unknownGraph.build();
+  const topo = calculateBlastRadius(libFile, { graph: unknownGraph, rootDir: semUnknownDir });
+  assert.strictEqual(topo.riskLevel, 'MEDIUM', `precondition: 3 callers should be MEDIUM, got ${topo.riskLevel} (${topo.riskScore})`);
+
+  const withSemantic = calculateBlastRadius(libFile, {
+    graph: unknownGraph,
+    semantic: true,
+    rootDir: semUnknownDir
+  });
+  assert.strictEqual(withSemantic.semanticAnalysis.overallVerdict, 'UNKNOWN');
+  assert.strictEqual(withSemantic.semanticAnalysis.hasBreaking, false);
+  assert.strictEqual(withSemantic.riskLevel, 'MEDIUM', 'UNKNOWN must not fail-open into a LOW downgrade');
+  assert.strictEqual(withSemantic.riskScore, topo.riskScore);
+  console.log('✓ Test 40 Passed: Semantic UNKNOWN preserves topology risk score.');
+} finally {
+  fs.rmSync(semUnknownDir, { recursive: true, force: true });
+}
+
+console.log('\nAll 40 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
