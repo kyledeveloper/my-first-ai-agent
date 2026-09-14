@@ -4,15 +4,15 @@
   <b>English</b> | <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-An autonomous, self-improving AI Agent workspace engineered with **Long-Term Reflexive Memory**, **Dynamic Self-Toolmaking**, **Context Optimization (MCP)**, and **Multi-Language Internationalization**.
+A coding-agent skill pack and local tools: reflexion memory, self-toolmaker, blast-radius, and pre-push gates. It plugs into an IDE coding agent (Antigravity, Cursor, Claude Code). It is not a standalone LLM runtime.
 
-The five pillars are wired together by a thin **Unified Agent Loop** (`src/agent/`): *retrieve memory → suggest/run a tool → optional blast-radius → record failures*.
+A thin loop (`src/agent/`) wires them: retrieve memory → suggest/run a tool → optional blast-radius → record failures.
 
 ---
 
-## Why This AI Agent?
+## Why this pack?
 
-Most modern AI coding assistants act merely as "smart typists"—often introducing painful friction:
+Most coding assistants act merely as "smart typists"—often introducing painful friction:
 - **Over-engineering & Bloat**: Creating multiple redundant interfaces, factory classes, and unvetted dependencies for simple tasks.
 - **Silent Breakages ("Fix A, Break B")**: Modifying core functions without visibility into downstream dependents, causing widespread regressions.
 - **Credential Leak Risks**: Accidental exposure of hardcoded API keys and credentials in Git commits.
@@ -21,7 +21,7 @@ Most modern AI coding assistants act merely as "smart typists"—often introduci
 ### Design Philosophy
 > **"The cleanest, most reliable code is the code that never had to be written. Hand repetitive friction to machines, and reserve certainty for humans."**
 
-This agent transforms coding from unpredictable "probabilistic generation" into deterministic, production-grade assembly with five integrated pillars:
+These skills and CLIs cover five jobs the host agent otherwise fumbles:
 1. **Minimalist Decision Mindset ([`Ponytail`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**: Enforces a 7-rung necessity ladder (YAGNI, stdlib & native first) to eliminate bloat.
 2. **Code Awareness Radar (`AST & Blast-Radius`)**: Computes exact downstream callers and affected test suites before modifying code.
 3. **Deterministic Quality & Security (`TDD Sandbox` + `Pre-Push Gatekeeper`)**: Executes Red-Green-Refactor tests in local offline sandboxes (0 token overhead) and hard-blocks secret leaks.
