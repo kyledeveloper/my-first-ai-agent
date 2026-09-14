@@ -128,6 +128,29 @@ assert.ok(planBlast.blastRadius.riskScore > 0);
 assert.ok(Array.isArray(planBlast.blastRadius.safetyPlan.steps));
 console.log('✓ Test 9 Passed: plan() attaches blast-radius when a refactor target is provided.');
 
+// Test 9b: dirty target auto-enables diff-aware semantic analysis
+console.log('Testing plan() auto --diff --semantic on a dirty target...');
+const dirtyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-dirty-'));
+const dirtySrc = path.join(dirtyRoot, 'src');
+fs.mkdirSync(dirtySrc);
+fs.writeFileSync(path.join(dirtySrc, 'lib.js'), 'function login(user) { return user; }\nmodule.exports = { login };\n');
+fs.writeFileSync(path.join(dirtySrc, 'app.js'), 'const { login } = require("./lib");\nlogin("a");\nmodule.exports = { app: true };\n');
+const gitOpts = { cwd: dirtyRoot, encoding: 'utf8' };
+assert.strictEqual(spawnSync('git', ['init'], gitOpts).status, 0);
+spawnSync('git', ['config', 'user.email', 'test@example.com'], gitOpts);
+spawnSync('git', ['config', 'user.name', 'Test'], gitOpts);
+spawnSync('git', ['add', '.'], gitOpts);
+assert.strictEqual(spawnSync('git', ['commit', '-m', 'init'], gitOpts).status, 0, 'temp repo commit should succeed');
+fs.writeFileSync(path.join(dirtySrc, 'lib.js'), 'function login(user, password) { return user; }\nmodule.exports = { login };\n');
+
+const dirtyLoop = new AgentLoop({ memory: mem, registryPath, rootDir: dirtyRoot });
+const dirtyPlan = dirtyLoop.plan('refactor login', { target: 'src/lib.js' });
+assert.strictEqual(dirtyPlan.blastRadius.isDiffAware, true, 'dirty file must enable diff-aware mode');
+assert.ok(dirtyPlan.blastRadius.semantic, 'dirty file must run AST semantic contract');
+assert.strictEqual(dirtyPlan.blastRadius.semantic.mode, 'ast-contract');
+fs.rmSync(dirtyRoot, { recursive: true, force: true });
+console.log('✓ Test 9b Passed: plan() auto-enables --diff --semantic when the target is dirty.');
+
 // Test 10: CLI plan --json is executable and returns structured output
 const cliPath = path.resolve(__dirname, '../src/agent/index.js');
 const cliPlan = spawnSync(process.execPath, [

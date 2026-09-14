@@ -1,6 +1,6 @@
 ---
 name: agent-loop
-description: Unified agent execution loop. Use before any non-trivial task to retrieve reflexion memory, select a synthesized tool, optionally compute blast-radius, execute, and record failures back into memory.
+description: Default host entry for any coding task. REQUIRED before editing src/. Run `node src/agent/index.js plan "<intent>" --target <file>` to retrieve reflexion memory, suggest tools, and compute blast-radius (auto --diff --semantic if the target is dirty). Use on refactor, fix, implement, or tool execution.
 user-invocable: true
 ---
 
@@ -22,11 +22,13 @@ Do **not** call memory, toolmaker, or blast-radius as disconnected one-offs for 
 node src/agent/index.js plan "<task intent>"
 ```
 
-Refactoring a module? Attach blast-radius:
+Refactoring a module? Always pass `--target` so blast-radius is attached. If that file is dirty, the loop turns on `--diff --semantic` by itself.
 
 ```bash
 node src/agent/index.js plan "refactor MemoryDatabase" --target src/memory/db.js
 ```
+
+If `Blast radius` reports semantic BREAKING, stop and tell the user. Do not keep editing.
 
 If Historical Reflexion Guidance is returned, **follow the heuristic** before running hazardous commands.
 

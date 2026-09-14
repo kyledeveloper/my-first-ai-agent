@@ -20,6 +20,39 @@ const { calculateBlastRadius } = require('../graph/blastRadius');
 const DEFAULT_REGISTRY = path.join(__dirname, '../../.agents/scripts/registry.json');
 const DEFAULT_ROOT = path.resolve(__dirname, '../../');
 
+function hasUncommittedDiff(rootDir, target) {
+  const resolved = path.resolve(rootDir, target);
+  const rel = path.relative(rootDir, resolved);
+  const opts = { cwd: rootDir, encoding: 'utf8', timeout: 5000 };
+  const unstaged = spawnSync('git', ['diff', '--', rel], opts);
+  const staged = spawnSync('git', ['diff', '--cached', '--', rel], opts);
+  if ((unstaged.error || staged.error)) return false;
+  return Boolean((unstaged.stdout || '').trim() || (staged.stdout || '').trim());
+}
+
+function summarizeBlast(report, rootDir) {
+  return {
+    target: report.target,
+    targetType: report.targetType,
+    riskLevel: report.riskLevel,
+    riskScore: report.riskScore,
+    directCount: report.directCount,
+    testCount: report.testCount,
+    impactedTests: (report.impactedTests || []).map(f => path.relative(rootDir, f)),
+    safetyPlan: report.safetyPlan,
+    isDiffAware: Boolean(report.isDiffAware),
+    scope: report.scope || null,
+    notes: report.notes || null,
+    semantic: report.semanticAnalysis
+      ? {
+          mode: report.semanticAnalysis.mode,
+          overallVerdict: report.semanticAnalysis.overallVerdict,
+          hasBreaking: report.semanticAnalysis.hasBreaking
+        }
+      : null
+  };
+}
+
 class AgentLoop {
   constructor(options = {}) {
     this.rootDir = path.resolve(options.rootDir || DEFAULT_ROOT);
@@ -86,17 +119,13 @@ class AgentLoop {
 
     let blastRadius = null;
     if (target) {
-      const report = calculateBlastRadius(target, { rootDir: this.rootDir });
-      blastRadius = {
-        target: report.target,
-        targetType: report.targetType,
-        riskLevel: report.riskLevel,
-        riskScore: report.riskScore,
-        directCount: report.directCount,
-        testCount: report.testCount,
-        impactedTests: (report.impactedTests || []).map(f => path.relative(this.rootDir, f)),
-        safetyPlan: report.safetyPlan
-      };
+      const dirty = hasUncommittedDiff(this.rootDir, target);
+      const report = calculateBlastRadius(target, {
+        rootDir: this.rootDir,
+        diffAware: dirty,
+        semantic: dirty
+      });
+      blastRadius = summarizeBlast(report, this.rootDir);
     }
 
     return { intent: String(intent).trim(), lessons, guidance, suggestedTools, blastRadius };
@@ -260,7 +289,7 @@ Flow: retrieve memory → suggest/run a synthesized tool → optional blast-radi
 Options:
   --tool <name>       Tool to execute (run)
   --exec              Execute the unique suggested tool when --tool is omitted
-  --target <path>     Also compute blast-radius for this file or symbol
+  --target <path>     Blast-radius for this file/symbol (auto --diff --semantic if it has uncommitted changes)
   --registry <path>   Override tool registry.json
   --db <path>         Override memory database path
   --root <path>       Project root (default: repository root)
@@ -299,6 +328,12 @@ function printPlan(report, json) {
     const br = report.blastRadius;
     console.log();
     console.log(`Blast radius: ${br.target} [${br.targetType}]  ${br.riskLevel} (${br.riskScore}/100)`);
+    if (br.isDiffAware) {
+      console.log(`  Diff scope: ${br.scope || 'unknown'}${br.notes ? ' — ' + br.notes : ''}`);
+    }
+    if (br.semantic) {
+      console.log(`  Semantic: ${br.semantic.overallVerdict} (${br.semantic.mode})`);
+    }
     console.log(`  Direct callers: ${br.directCount}   Impacted tests: ${br.testCount}`);
     if (br.safetyPlan && br.safetyPlan.steps) {
       for (const step of br.safetyPlan.steps) {
@@ -433,7 +468,8 @@ function main() {
 module.exports = {
   AgentLoop,
   DEFAULT_REGISTRY,
-  DEFAULT_ROOT
+  DEFAULT_ROOT,
+  hasUncommittedDiff
 };
 
 if (require.main === module) {

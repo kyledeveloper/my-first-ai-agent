@@ -27,7 +27,8 @@
 - **Dependency & Code Smell Advisories**: Automatically scans for high/critical CVEs via `npm audit` and flags code smell indicators (functions >80 lines, nesting depth >4) before pushing.
 
 ## Pre-Refactoring Blast-Radius Analysis Policy
-- **Impact Assessment First**: Before modifying or refactoring existing core modules or exported functions in `src/`, the AI Agent should evaluate the blast radius using `node .agents/scripts/runner.js blast-radius --target <fileOrSymbol>`.
+- **Hard stop before edits**: Do not modify `src/`, `.agents/scripts/`, or exported APIs until you have run `node src/agent/index.js plan "<intent>" --target <fileOrSymbol>`. This is the host entry point (memory + tools + blast-radius). Writing code first is a policy violation.
+- **Dirty tree**: `plan --target` auto-enables `--diff --semantic` when that file has uncommitted changes. If `semantic.overallVerdict` is `BREAKING`, stop and report; do not keep coding.
 - **Targeted Test Execution**: After completing refactorings, verify all impacted test suites identified by the blast radius report to guarantee zero regressions across downstream callers.
 
 ## Ambiguous Intent Clarification Policy (大词与模糊意图反向澄清准则)

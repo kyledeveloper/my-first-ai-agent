@@ -1,6 +1,6 @@
 ---
 name: code-graph
-description: Code Symbol Graph & Blast-Radius Analysis. Use before refactoring or modifying core modules/functions to compute downstream impact scope, affected test suites, and safety plans.
+description: REQUIRED before editing src/, refactoring, renaming, or changing exported signatures. Computes blast-radius. Hosts should call `node src/agent/index.js plan "<intent>" --target <file>` (auto --diff --semantic when the file is dirty). Use on any change/fix/refactor of project code.
 user-invocable: true
 ---
 
@@ -22,14 +22,22 @@ Run blast-radius analysis **prior to writing code** whenever:
 
 ## 2. CLI Tool Usage
 
-Execute via the unified project runner:
+**Host default (preferred):** one command, flags chosen automatically.
+
+```bash
+node src/agent/index.js plan "refactor MemoryDatabase" --target src/memory/db.js
+```
+
+If the target file already has uncommitted changes, that plan run enables `--diff --semantic`. On a clean tree it reports full downstream topology (do not pass `--diff` before the first edit — an empty diff looks CLEAN and under-reports).
+
+Execute via the unified project runner when you need the raw tool:
 
 ### File-Level Analysis
 ```bash
-# Analyze impact of modifying a module
-node .agents/scripts/runner.js blast-radius --target src/memory/db.js
+# After edits exist: diff-aware + AST contract
+node .agents/scripts/runner.js blast-radius --target src/memory/db.js --diff --semantic
 
-# View hierarchical ASCII dependency tree
+# Clean tree / pre-edit topology
 node .agents/scripts/runner.js blast-radius --target src/memory/db.js --tree
 ```
 

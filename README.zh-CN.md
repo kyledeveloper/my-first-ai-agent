@@ -138,7 +138,7 @@ node src/memory/index.js search "在沙盒中安装原生模块"
 # 只检索记忆、建议工具（无副作用）
 node src/agent/index.js plan "install sqlite native addon"
 
-# 重构前附带爆炸半径
+# 重构前附带爆炸半径（目标文件有未提交 diff 时自动 --diff --semantic）
 node src/agent/index.js plan "refactor MemoryDatabase" --target src/memory/db.js
 
 # 通过 loop 执行已沉淀工具（失败会写回记忆）

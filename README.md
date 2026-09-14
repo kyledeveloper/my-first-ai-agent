@@ -140,7 +140,7 @@ node src/memory/index.js search "install sqlite native addons in sandbox"
 # Retrieve memory + suggest tools (no side effects)
 node src/agent/index.js plan "install sqlite native addon"
 
-# Refactoring: also compute blast-radius
+# Refactoring: blast-radius (auto --diff --semantic if the file is dirty)
 node src/agent/index.js plan "refactor MemoryDatabase" --target src/memory/db.js
 
 # Execute a synthesized tool through the loop (failures are recorded)
