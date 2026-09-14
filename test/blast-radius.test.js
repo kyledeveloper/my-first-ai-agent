@@ -195,4 +195,20 @@ assert.ok(parsedUrlComment.exports.includes('API'));
 assert.ok(parsedUrlComment.functions.some(f => f.name === 'fetchUser'));
 console.log('✓ Test 11 Passed: https:// inside strings is not stripped as a line comment.');
 
-console.log('\nAll 11 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+// Test 12: ESM export { } and import * as
+console.log('Testing Parser ESM export lists and namespace imports...');
+const esmCode = `
+import * as memory from './src/memory/index.js';
+import { AgentLoop } from './src/agent/index.js';
+export { parseSource, stripComments as strip };
+export function calculateBlastRadius() {}
+`;
+const parsedEsm = parseSource(esmCode, '/tmp/graph.js');
+assert.ok(parsedEsm.imports.some(i => i.type === 'esm' && i.defaultName === 'memory' && i.source.includes('memory')), 'import * as memory must be captured');
+assert.ok(parsedEsm.imports.some(i => i.named && i.named.includes('AgentLoop')), 'named ESM import must still parse');
+assert.ok(parsedEsm.exports.includes('parseSource'), 'export { parseSource } must be captured');
+assert.ok(parsedEsm.exports.includes('strip'), 'export { x as strip } must use the public name');
+assert.ok(parsedEsm.exports.includes('calculateBlastRadius'));
+console.log('✓ Test 12 Passed: export { } and import * as are parsed.');
+
+console.log('\nAll 12 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');

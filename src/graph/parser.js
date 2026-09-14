@@ -166,6 +166,19 @@ function parseSource(code, filePath) {
     });
   }
 
+  // import * as ns from '...'
+  const esmNamespaceImport = /import\s+\*\s+as\s+([a-zA-Z0-9_$]+)\s+from\s+(["'][^"']+["'])/g;
+  while ((match = esmNamespaceImport.exec(cleanCode)) !== null) {
+    const source = match[2].replace(/["']/g, '');
+    imports.push({
+      type: 'esm',
+      source,
+      resolvedPath: resolveModulePath(source, filePath),
+      defaultName: match[1],
+      named: null
+    });
+  }
+
   // 3. Extract Classes and base class extensions
   const classRegex = /class\s+([a-zA-Z0-9_$]+)(?:\s+extends\s+([a-zA-Z0-9_$]+))?\s*\{/g;
   while ((match = classRegex.exec(cleanCode)) !== null) {
@@ -230,10 +243,18 @@ function parseSource(code, filePath) {
     exportsList.add(match[1]);
   }
 
-  // ESM default export: export default Foo
-  const esmDefaultExport = /export\s+default\s+(?:class|function)?\s*([a-zA-Z0-9_$]+)/g;
-  while ((match = esmDefaultExport.exec(cleanCode)) !== null) {
-    exportsList.add(match[1]);
+  // ESM named list: export { a, b as c }
+  const esmListExport = /export\s+\{([^}]+)\}/g;
+  while ((match = esmListExport.exec(cleanCode)) !== null) {
+    match[1].split(',').forEach(item => {
+      const trimmed = item.trim();
+      if (!trimmed) return;
+      const parts = trimmed.split(/\s+as\s+/);
+      const publicName = (parts[1] || parts[0]).trim();
+      if (publicName && /^[a-zA-Z0-9_$]+$/.test(publicName)) {
+        exportsList.add(publicName);
+      }
+    });
   }
 
   // 6. Extract Call Sites (e.g. foo(...) or obj.method(...))

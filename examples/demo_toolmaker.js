@@ -30,6 +30,19 @@ if (check.shouldSynthesize) {
 console.log('\n⚙️ Synthesizing dedicated CLI tool: .agents/scripts/audit-locales.js ...');
 
 const auditToolCode = `
+    function getFlattenedKeys(obj, prefix = '') {
+      let keys = [];
+      for (const [k, v] of Object.entries(obj)) {
+        const fullKey = prefix ? prefix + '.' + k : k;
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          keys = keys.concat(getFlattenedKeys(v, fullKey));
+        } else {
+          keys.push(fullKey);
+        }
+      }
+      return keys;
+    }
+
     const baseDir = path.resolve(process.cwd(), args.base || 'locales/zh-CN');
     const targetDir = path.resolve(process.cwd(), args.target || 'locales/en-US');
 

@@ -30,8 +30,8 @@ class ReflexionEngine {
     const existing = this.db.db.prepare(`
       SELECT r.id, r.confidence_score, r.hit_count
       FROM reflections r
-      WHERE r.trigger_pattern = ? OR r.corrective_heuristic = ?
-    `).get(trigger_pattern, corrective_heuristic);
+      WHERE r.trigger_pattern = ?
+    `).get(trigger_pattern);
 
     if (existing) {
       // Reinforce existing reflection
@@ -48,32 +48,34 @@ class ReflexionEngine {
     const episodeId = `ep_${crypto.randomUUID()}`;
     const reflectionId = `ref_${crypto.randomUUID()}`;
 
-    this.db.insertEpisode({
-      id: episodeId,
-      intent,
-      context_summary,
-      domain_tags,
-      status,
-      created_at: now
-    });
+    return this.db.transaction(() => {
+      this.db.insertEpisode({
+        id: episodeId,
+        intent,
+        context_summary,
+        domain_tags,
+        status,
+        created_at: now
+      });
 
-    this.db.insertReflection({
-      id: reflectionId,
-      episode_id: episodeId,
-      intent,
-      trigger_pattern,
-      failure_mode,
-      root_cause,
-      corrective_heuristic,
-      confidence_score,
-      importance_score,
-      hit_count: 1,
-      domain_tags,
-      created_at: now,
-      last_accessed_at: now
-    });
+      this.db.insertReflection({
+        id: reflectionId,
+        episode_id: episodeId,
+        intent,
+        trigger_pattern,
+        failure_mode,
+        root_cause,
+        corrective_heuristic,
+        confidence_score,
+        importance_score,
+        hit_count: 1,
+        domain_tags,
+        created_at: now,
+        last_accessed_at: now
+      });
 
-    return { id: reflectionId, episodeId, reinforced: false };
+      return { id: reflectionId, episodeId, reinforced: false };
+    });
   }
 
   /**

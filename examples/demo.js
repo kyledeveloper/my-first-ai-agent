@@ -1,5 +1,6 @@
 const i18n = require('../src/i18n');
 
+i18n.changeLanguage('zh-CN');
 console.log('=== 🇨🇳 Chinese (zh-CN) Output ===');
 console.log(i18n.t('app.title'));
 console.log(i18n.t('common.welcome', { name: 'Kyle' }));

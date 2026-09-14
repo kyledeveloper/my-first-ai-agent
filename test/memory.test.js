@@ -45,6 +45,19 @@ assert.strictEqual(res2.reinforced, true, 'Duplicate pattern should reinforce in
 assert.strictEqual(mem.stats().reflectionCount, 1, 'Reflection count should remain 1 after reinforcement');
 console.log('✓ Test 3 Passed: Deduplication and reinforcement working properly.');
 
+// Test 3b: Same heuristic, different trigger → two reflections (do not merge on heuristic text)
+const resOtherTrigger = mem.recordExperience({
+  intent: 'Write project-scoped MCP config',
+  domain_tags: ['mcp'],
+  status: 'failure',
+  trigger_pattern: 'write global mcp_config.json',
+  root_cause: 'Global config leaks across workspaces',
+  corrective_heuristic: 'Avoid building native C++ addons inside sandbox; prefer npx or ask user to install in system terminal'
+});
+assert.strictEqual(resOtherTrigger.reinforced, false, 'Different trigger_pattern must not collapse onto an existing heuristic');
+assert.strictEqual(mem.stats().reflectionCount, 2, 'Distinct triggers should create a second reflection');
+console.log('✓ Test 3b Passed: Dedup keys on trigger_pattern only, not heuristic text.');
+
 // Test 4: Full-text search retrieval (FTS5)
 const queryResults = mem.query('npm install better-sqlite3 error');
 assert.ok(queryResults.length > 0, 'Should find matching lesson by keywords');
@@ -140,5 +153,28 @@ const afterAccess = mem.db.db.prepare('SELECT last_accessed_at FROM reflections 
 assert.strictEqual(afterAccess, nowAccessTime, 'autoIncrementHit should update last_accessed_at to current timestamp');
 console.log('✓ Test 11 Passed: Retrieval hit refreshes last_accessed_at activation.');
 
+// Test 12: Episode + reflection + FTS insert roll back together
+const beforeRollback = mem.stats();
+const originalInsert = mem.db.insertReflection.bind(mem.db);
+mem.db.insertReflection = () => {
+  throw new Error('simulated fts failure');
+};
+assert.throws(
+  () => mem.recordExperience({
+    intent: 'Should roll back',
+    trigger_pattern: 'unique-rollback-trigger',
+    root_cause: 'injected failure',
+    corrective_heuristic: 'transaction must drop the episode too'
+  }),
+  /simulated fts failure/
+);
+mem.db.insertReflection = originalInsert;
+const afterRollback = mem.stats();
+assert.strictEqual(afterRollback.episodeCount, beforeRollback.episodeCount, 'episode insert must roll back with FTS failure');
+assert.strictEqual(afterRollback.reflectionCount, beforeRollback.reflectionCount, 'reflection count must be unchanged after rollback');
+const leaked = mem.query('unique-rollback-trigger');
+assert.strictEqual(leaked.length, 0, 'rolled-back FTS rows must not be searchable');
+console.log('✓ Test 12 Passed: recordExperience wraps episode/reflection/FTS in one transaction.');
+
 mem.close();
-console.log('\nAll 11 tests passed successfully! 🎉');
+console.log('\nAll 12 Long-Term Memory tests passed successfully! 🎉');

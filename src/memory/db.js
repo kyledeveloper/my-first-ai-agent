@@ -87,6 +87,18 @@ class MemoryDatabase {
     stmt.run(timestamp, reflectionId);
   }
 
+  transaction(fn) {
+    this.db.exec('BEGIN');
+    try {
+      const result = fn();
+      this.db.exec('COMMIT');
+      return result;
+    } catch (err) {
+      try { this.db.exec('ROLLBACK'); } catch (e) {}
+      throw err;
+    }
+  }
+
   close() {
     this.db.close();
   }

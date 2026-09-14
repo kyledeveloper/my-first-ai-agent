@@ -2,9 +2,13 @@ const i18next = require('i18next');
 const zhCNCommon = require('../locales/zh-CN/common.json');
 const enUSCommon = require('../locales/en-US/common.json');
 
-// Initialize i18next instance
+function detectLanguage(env = process.env) {
+  const raw = env.LANG || env.LANGUAGE || env.LC_ALL || env.LC_MESSAGES || '';
+  return /^zh\b/i.test(raw) || raw.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US';
+}
+
 i18next.init({
-  lng: 'zh-CN', // Default language
+  lng: detectLanguage(),
   fallbackLng: 'en-US',
   resources: {
     'zh-CN': {
@@ -16,8 +20,9 @@ i18next.init({
   },
   defaultNS: 'common',
   interpolation: {
-    escapeValue: false // not needed for node/react
+    escapeValue: false
   }
 });
 
+i18next.detectLanguage = detectLanguage;
 module.exports = i18next;
