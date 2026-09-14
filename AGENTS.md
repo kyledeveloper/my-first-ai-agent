@@ -29,3 +29,8 @@
 ## Pre-Refactoring Blast-Radius Analysis Policy
 - **Impact Assessment First**: Before modifying or refactoring existing core modules or exported functions in `src/`, the AI Agent should evaluate the blast radius using `node .agents/scripts/runner.js blast-radius --target <fileOrSymbol>`.
 - **Targeted Test Execution**: After completing refactorings, verify all impacted test suites identified by the blast radius report to guarantee zero regressions across downstream callers.
+
+## Ambiguous Intent Clarification Policy (大词与模糊意图反向澄清准则)
+- **Macro Vision Term Interception (Hard Stop on Coding)**: Whenever a user prompt contains broad, unbounded macro terms (e.g., "build an e-commerce mall", "create a blog system", "build a social platform", "make an admin dashboard", "做一个商城/博客/社区/管理后台"), the AI Agent is **strictly prohibited from writing implementation code immediately**.
+- **Interactive Socratic Interview (`/grill-me` & `ask_question`)**: The Agent must trigger a requirement discovery interview (channeling `/grill-me` via `ask_question` or structured multi-choice inquiry) to interrogate and clarify ambiguous assumptions, technical boundaries, core MVP scopes (v0.1 slicing), and business logic until the user's intent is deterministic and actionable.
+- **Visual Blueprint First (`archify`)**: Once requirements and user stories are clarified, for any complex business logic, state transitions, or multi-step workflows, the Agent must first compile and deliver an interactive `archify` diagram (workflow/lifecycle HTML) for user visual confirmation and sign-off **before** initiating TDD red-green implementation.
