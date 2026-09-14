@@ -50,6 +50,7 @@ Usage:
 Options:
   --target <path|name>   Target file path or symbol identifier (required)
   --diff                 Enable Git Diff-aware analysis (converges private changes to LOCAL_PRIVATE)
+  --semantic             Enable Stage 2 Semantic Contract evaluation (breaking change inference)
   --tree                 Render hierarchical ASCII dependency tree
   --json                 Output machine-readable JSON format
   --lang <lang>          Language ('en-US' or 'zh-CN', defaults to $LANG)
@@ -59,6 +60,7 @@ Options:
 Examples:
   node .agents/scripts/runner.js blast-radius --target src/memory/db.js
   node .agents/scripts/runner.js blast-radius --target src/memory/db.js --diff
+  node .agents/scripts/runner.js blast-radius --target src/memory/db.js --diff --semantic
   node .agents/scripts/runner.js blast-radius --target MemoryDatabase --tree
   node .agents/scripts/runner.js blast-radius --target calculateScore --json
 `);
@@ -117,7 +119,8 @@ async function run() {
 
   const maxDepth = parseInt(args['max-depth'] || '10', 10);
   const diffAware = !!args.diff;
-  const report = calculateBlastRadius(target, { rootDir, maxDepth, diffAware });
+  const semantic = !!args.semantic;
+  const report = calculateBlastRadius(target, { rootDir, maxDepth, diffAware, semantic });
 
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
@@ -137,6 +140,20 @@ async function run() {
     const scopeEmoji = report.scope === 'LOCAL_PRIVATE' ? '🟢 [LOCAL_PRIVATE]' : (report.scope === 'CLEAN' ? '⚪ [CLEAN]' : '🔵 [PUBLIC_CONTRACT]');
     console.log(`Diff Scope: ${scopeEmoji}`);
     if (report.notes) console.log(`Note: ${report.notes}`);
+  }
+
+  if (report.semanticAnalysis && report.semanticAnalysis.isSemanticAware) {
+    const sVerdict = report.semanticAnalysis.hasBreaking ? '🔴 [BREAKING CHANGE]' : '🟢 [COMPATIBLE]';
+    console.log(`Semantic Analysis: ${sVerdict} (${report.semanticAnalysis.mode})`);
+    if (report.semanticAnalysis.evaluations && report.semanticAnalysis.evaluations.length > 0) {
+      report.semanticAnalysis.evaluations.forEach(e => {
+        const vTag = e.isBreaking ? '🔴' : '🟢';
+        console.log(`  ${vTag} ${e.callerFile}: ${e.reason}`);
+        if (e.suggestedRemediation) {
+          console.log(`    ↳ Action: ${e.suggestedRemediation}`);
+        }
+      });
+    }
   }
 
   const riskEmoji = report.riskLevel === 'HIGH' ? '🔴' : (report.riskLevel === 'MEDIUM' ? '🟡' : '🟢');

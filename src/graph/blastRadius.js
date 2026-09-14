@@ -7,6 +7,7 @@ const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { SymbolGraph } = require('./index');
 const { findNodesAtLines } = require('./parser');
+const { evaluateSemanticBlastRadius } = require('./semanticEvaluator');
 
 /**
  * Add hunk lines to lines set.
@@ -433,7 +434,7 @@ function calculateBlastRadius(target, options = {}) {
     steps.push(`4. Regression testing: Run full test suite (npm test) to verify integrity.`);
   }
 
-  return {
+  const report = {
     target: targetFile ? path.relative(rootDir, targetFile) : target,
     targetType,
     targetFile,
@@ -455,6 +456,91 @@ function calculateBlastRadius(target, options = {}) {
       recommendedTestCommands
     }
   };
+
+  if (options.semantic && directFiles.length > 0) {
+    // Red-Team [CRITICAL-02]: Intercept file rename. Renaming is a path-level breaking change.
+    // Prohibit semantic parameter evaluation from falsely downgrading to LOW risk.
+    if (diffEval.touchedSymbols && diffEval.touchedSymbols.includes('RENAME')) {
+      report.riskLevel = 'HIGH';
+      report.riskScore = Math.max(90, report.riskScore);
+      report.notes = (report.notes ? report.notes + ' ' : '') +
+        '[SEMANTIC: BREAKING] File was renamed or moved. Downstream module imports broken.';
+      report.safetyPlan.steps.push(
+        `Critical: Update downstream import paths in ${directFiles.length} caller file(s) to match new location.`
+      );
+      report.semanticAnalysis = {
+        isSemanticAware: true,
+        isDegraded: false,
+        mode: 'path-contract',
+        overallVerdict: 'BREAKING',
+        hasBreaking: true,
+        evaluations: directFiles.map(f => ({
+          symbol: 'FILE_PATH',
+          callerFile: path.basename(f),
+          callerPath: f,
+          callSiteCount: 1,
+          verdict: 'BREAKING',
+          isBreaking: true,
+          reason: 'File renamed or moved; downstream imports require path update.'
+        }))
+      };
+      return report;
+    }
+
+    let changedSymbols = [];
+    if (targetType === 'file') {
+      const fileNode = graph.getFileNode(targetFile);
+      changedSymbols = diffEval.touchedSymbols && diffEval.touchedSymbols.length > 0
+        ? diffEval.touchedSymbols
+        : (fileNode ? fileNode.exports : []);
+    } else if (targetType === 'symbol' && targetSymbol) {
+      changedSymbols = [targetSymbol];
+    }
+
+    if (changedSymbols.length > 0) {
+      const semanticReport = evaluateSemanticBlastRadius(
+        targetFile,
+        changedSymbols,
+        directFiles,
+        graph,
+        options
+      );
+      return applySemanticRiskAdjustment(report, semanticReport);
+    }
+  }
+
+  return report;
+}
+
+/**
+ * Apply Stage 2 semantic evaluation verdict to blast radius report.
+ * @param {object} baseReport
+ * @param {object} semanticReport
+ * @returns {object}
+ */
+function applySemanticRiskAdjustment(baseReport, semanticReport) {
+  if (!semanticReport || !semanticReport.isSemanticAware) {
+    return baseReport;
+  }
+  baseReport.semanticAnalysis = semanticReport;
+  if (!semanticReport.hasBreaking && semanticReport.evaluations.length > 0) {
+    baseReport.riskLevel = 'LOW';
+    baseReport.riskScore = Math.min(20, Math.floor(baseReport.riskScore * 0.3));
+    baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
+      '[SEMANTIC: COMPATIBLE] All downstream call sites are semantically compatible.';
+  } else if (semanticReport.hasBreaking) {
+    baseReport.riskLevel = 'HIGH';
+    baseReport.riskScore = Math.max(85, baseReport.riskScore);
+    baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
+      '[SEMANTIC: BREAKING] Breaking change detected in downstream call sites.';
+
+    for (const b of semanticReport.evaluations) {
+      if (b.isBreaking && b.suggestedRemediation) {
+        baseReport.safetyPlan.steps.push(`Fix breaking change in ${b.callerFile}: ${b.suggestedRemediation}`);
+      }
+    }
+  }
+  return baseReport;
 }
 
 module.exports = {

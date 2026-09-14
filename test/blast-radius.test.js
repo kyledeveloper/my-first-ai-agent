@@ -580,4 +580,568 @@ assert.strictEqual(parsedValidJs.isDegraded, false, 'Standard JS should not be d
 assert.strictEqual(parsedValidJs.parserType, 'ast-acorn', 'Standard JS should use ast-acorn parserType');
 console.log('✓ Test 26 Passed: Standard JS correctly reports ast-acorn parserType with zero degradation.');
 
-console.log('\nAll 26 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+// Test 27: Stage 2 Semantic Blast Radius - Adding parameter with default value is COMPATIBLE
+console.log('Testing Semantic Blast Radius: Adding parameter with default value (COMPATIBLE)...');
+const semanticPath = path.resolve(__dirname, '../src/graph/semanticEvaluator.js');
+const {
+  analyzeSignature,
+  extractSignatureFromHunk,
+  sliceCallSite,
+  extractCallSitesInFile,
+  evaluateStructuralContract,
+  evaluateSemanticBlastRadius
+} = require(semanticPath);
+
+const semCompatDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-compat-'));
+try {
+  const serviceFile = path.join(semCompatDir, 'pricingService.js');
+  const clientFile = path.join(semCompatDir, 'orderClient.js');
+
+  const serviceCode = `
+function calculateTotal(price, taxRate = 0.05) {
+  return price * (1 + taxRate);
+}
+module.exports = { calculateTotal };
+`;
+  const clientCode = `
+const { calculateTotal } = require('./pricingService');
+function checkout() {
+  return calculateTotal(100);
+}
+module.exports = { checkout };
+`;
+  fs.writeFileSync(serviceFile, serviceCode, 'utf8');
+  fs.writeFileSync(clientFile, clientCode, 'utf8');
+
+  const semGraph = new SymbolGraph({ rootDir: semCompatDir });
+  semGraph.build();
+
+  const diffAddDefault = `
+--- a/pricingService.js
++++ b/pricingService.js
+@@ -1,3 +1,3 @@
+-function calculateTotal(price) {
++function calculateTotal(price, taxRate = 0.05) {
+`;
+
+  const report = calculateBlastRadius(serviceFile, {
+    graph: semGraph,
+    diff: diffAddDefault,
+    diffAware: true,
+    semantic: true,
+    rootDir: semCompatDir
+  });
+
+  assert.strictEqual(report.scope, 'PUBLIC_CONTRACT', 'Scope must be PUBLIC_CONTRACT');
+  assert.ok(report.semanticAnalysis, 'Report must include semanticAnalysis');
+  assert.strictEqual(report.semanticAnalysis.hasBreaking, false, 'Adding default parameter must not be breaking');
+  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'COMPATIBLE', 'Overall verdict must be COMPATIBLE');
+  assert.strictEqual(report.riskLevel, 'LOW', 'Risk level should downgrade to LOW for compatible changes');
+  assert.ok(report.riskScore <= 20, `Risk score should be <= 20, got ${report.riskScore}`);
+  assert.ok(report.notes.includes('[SEMANTIC: COMPATIBLE]'), 'Notes must indicate semantic compatibility');
+  console.log('✓ Test 27 Passed: Adding optional parameter with default is correctly evaluated as COMPATIBLE.');
+} finally {
+  fs.rmSync(semCompatDir, { recursive: true, force: true });
+}
+
+// Test 28: Stage 2 Semantic Blast Radius - Adding mandatory parameter without default is BREAKING
+console.log('Testing Semantic Blast Radius: Adding mandatory parameter without default (BREAKING)...');
+const semBreakDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-break-'));
+try {
+  const serviceFile = path.join(semBreakDir, 'pricingService.js');
+  const clientFile = path.join(semBreakDir, 'orderClient.js');
+
+  const serviceCode = `
+function calculateTotal(price, taxRate) {
+  return price * (1 + taxRate);
+}
+module.exports = { calculateTotal };
+`;
+  const clientCode = `
+const { calculateTotal } = require('./pricingService');
+function checkout() {
+  return calculateTotal(100);
+}
+module.exports = { checkout };
+`;
+  fs.writeFileSync(serviceFile, serviceCode, 'utf8');
+  fs.writeFileSync(clientFile, clientCode, 'utf8');
+
+  const semGraph = new SymbolGraph({ rootDir: semBreakDir });
+  semGraph.build();
+
+  const diffAddMandatory = `
+--- a/pricingService.js
++++ b/pricingService.js
+@@ -1,3 +1,3 @@
+-function calculateTotal(price) {
++function calculateTotal(price, taxRate) {
+`;
+
+  const report = calculateBlastRadius(serviceFile, {
+    graph: semGraph,
+    diff: diffAddMandatory,
+    diffAware: true,
+    semantic: true,
+    rootDir: semBreakDir
+  });
+
+  assert.ok(report.semanticAnalysis, 'Report must include semanticAnalysis');
+  assert.strictEqual(report.semanticAnalysis.hasBreaking, true, 'Adding mandatory parameter without default must be breaking');
+  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'BREAKING', 'Overall verdict must be BREAKING');
+  assert.strictEqual(report.riskLevel, 'HIGH', 'Risk level should be elevated to HIGH for breaking changes');
+  assert.ok(report.riskScore >= 85, `Risk score should be >= 85, got ${report.riskScore}`);
+  assert.ok(report.notes.includes('[SEMANTIC: BREAKING]'), 'Notes must indicate semantic breaking change');
+  console.log('✓ Test 28 Passed: Adding mandatory parameter without default is correctly evaluated as BREAKING.');
+} finally {
+  fs.rmSync(semBreakDir, { recursive: true, force: true });
+}
+
+// Test 29: Red-Team [BLOCKER-1] Monotonic Security Ratchet: AST Breaking Verdict Veto Power
+console.log('Testing Red-Team [BLOCKER-1]: AST Veto Power over LLM Hallucination...');
+const semVetoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-veto-'));
+try {
+  const serviceFile = path.join(semVetoDir, 'authService.js');
+  const clientFile = path.join(semVetoDir, 'app.js');
+
+  const serviceCode = `
+function login(username, password) {
+  return true;
+}
+module.exports = { login };
+`;
+  const clientCode = `
+const { login } = require('./authService');
+login('admin');
+`;
+  fs.writeFileSync(serviceFile, serviceCode, 'utf8');
+  fs.writeFileSync(clientFile, clientCode, 'utf8');
+
+  const semGraph = new SymbolGraph({ rootDir: semVetoDir });
+  semGraph.build();
+
+  const diffAddMandatory = `
+--- a/authService.js
++++ b/authService.js
+@@ -1,3 +1,3 @@
+-function login(username) {
++function login(username, password) {
+`;
+
+  // Adversarial LLM claiming everything is COMPATIBLE
+  const hallucinatingLlm = (payload) => {
+    return {
+      verdict: 'COMPATIBLE',
+      reason: 'Hallucination: Missing password argument is completely fine!'
+    };
+  };
+
+  const report = calculateBlastRadius(serviceFile, {
+    graph: semGraph,
+    diff: diffAddMandatory,
+    diffAware: true,
+    semantic: true,
+    rootDir: semVetoDir,
+    llmEvaluator: hallucinatingLlm
+  });
+
+  assert.strictEqual(report.semanticAnalysis.hasBreaking, true, 'AST breaking verdict must NOT be overridden by LLM');
+  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'BREAKING', 'Verdict must stay BREAKING');
+  const evalItem = report.semanticAnalysis.evaluations[0];
+  assert.strictEqual(evalItem.verdict, 'BREAKING');
+  assert.ok(evalItem.reason.includes('[AST Veto: LLM override prohibited]'), 'Reason must record AST veto');
+  console.log('✓ Test 29 Passed: Monotonic Security Ratchet forbids LLM from downgrading AST breaking changes.');
+} finally {
+  fs.rmSync(semVetoDir, { recursive: true, force: true });
+}
+
+// Test 30: Red-Team [BLOCKER-2] Resilient Regex Signature Extraction on Partial Diff Hunks
+console.log('Testing Red-Team [BLOCKER-2]: Resilient diff regex fallback on partial hunk lines...');
+const partialHunkText = `
+@@ -45,4 +45,4 @@
+- async function requestData(endpoint, timeout) {
++ async function requestData(endpoint, timeout = 3000, maxRetries = 2) {
+`;
+
+const extractedOld = extractSignatureFromHunk(partialHunkText, 'requestData', 'old');
+assert.ok(extractedOld, 'Must extract old signature from hunk');
+assert.strictEqual(extractedOld.name, 'requestData');
+assert.strictEqual(extractedOld.isAsync, true);
+assert.strictEqual(extractedOld.paramCount, 2);
+assert.strictEqual(extractedOld.requiredCount, 2);
+
+const extractedNew = extractSignatureFromHunk(partialHunkText, 'requestData', 'new');
+assert.ok(extractedNew, 'Must extract new signature from hunk');
+assert.strictEqual(extractedNew.name, 'requestData');
+assert.strictEqual(extractedNew.isAsync, true);
+assert.strictEqual(extractedNew.paramCount, 3);
+assert.strictEqual(extractedNew.requiredCount, 1);
+assert.strictEqual(extractedNew.params[1].hasDefault, true);
+assert.strictEqual(extractedNew.params[2].hasDefault, true);
+
+// Test with arrow function in hunk
+const arrowHunk = `+ const processItem = (id, options = {}) => {`;
+const extractedArrow = extractSignatureFromHunk(arrowHunk, 'processItem');
+assert.ok(extractedArrow, 'Must extract arrow signature from hunk');
+assert.strictEqual(extractedArrow.paramCount, 2);
+assert.strictEqual(extractedArrow.requiredCount, 1);
+console.log('✓ Test 30 Passed: Resilient diff regex safely parses partial hunks with zero SyntaxError.');
+
+// Test 31: Red-Team [BLOCKER-3] Hermetic AST Call-Site Slicing (<= 20 lines)
+console.log('Testing Red-Team [BLOCKER-3]: Hermetic AST Call-site slicing (<= 20 lines)...');
+const acorn = require('acorn');
+const largeCallerLines = [];
+for (let i = 1; i <= 60; i++) {
+  if (i === 35) {
+    largeCallerLines.push('  const data = fetchTarget(123);');
+  } else {
+    largeCallerLines.push(`  // context line ${i}`);
+  }
+}
+const largeCallerCode = `function runWorkflow() {\n${largeCallerLines.join('\n')}\n}\n`;
+const callerAst = acorn.parse(largeCallerCode, { ecmaVersion: 'latest', sourceType: 'module', locations: true });
+
+let targetCallNode = null;
+const walk = require('acorn-walk');
+walk.simple(callerAst, {
+  CallExpression(node) {
+    if (node.callee?.name === 'fetchTarget') {
+      targetCallNode = node;
+    }
+  }
+});
+
+assert.ok(targetCallNode, 'Must locate fetchTarget CallExpression in AST');
+const slicedSnippet = sliceCallSite(largeCallerCode, targetCallNode);
+const slicedLineCount = slicedSnippet.split('\n').length;
+assert.ok(slicedLineCount <= 20, `Sliced snippet must be <= 20 lines, got ${slicedLineCount}`);
+assert.ok(slicedSnippet.includes('fetchTarget(123)'), 'Sliced snippet must include the target call expression');
+console.log(`✓ Test 31 Passed: Hermetic call-site slicing produced ${slicedLineCount} lines (<= 20 line limit).`);
+
+// Test 32: Red-Team [CONCERN-1] Sync to Async Transition Trap
+console.log('Testing Red-Team [CONCERN-1]: Sync-to-Async transition without await in caller...');
+const syncSig = {
+  name: 'fetchUser',
+  isAsync: false,
+  isGenerator: false,
+  params: [{ name: 'id', hasDefault: false, isRest: false, isDestructured: false, keys: [] }],
+  paramCount: 1,
+  requiredCount: 1
+};
+const asyncSig = {
+  name: 'fetchUser',
+  isAsync: true,
+  isGenerator: false,
+  params: [{ name: 'id', hasDefault: false, isRest: false, isDestructured: false, keys: [] }],
+  paramCount: 1,
+  requiredCount: 1
+};
+
+// Caller calls fetchUser synchronously without await
+const unhandledCallerCode = `
+function handleRequest() {
+  const user = fetchUser(101);
+  return user.name;
+}
+`;
+const unhandledAst = acorn.parse(unhandledCallerCode, { ecmaVersion: 'latest', sourceType: 'module', locations: true });
+const unhandledCallSites = extractCallSitesInFile(unhandledCallerCode, unhandledAst, 'fetchUser');
+assert.strictEqual(unhandledCallSites.length, 1);
+assert.strictEqual(unhandledCallSites[0].isAwaited, false);
+assert.strictEqual(unhandledCallSites[0].hasThenChain, false);
+
+const asyncTrapVerdict = evaluateStructuralContract(syncSig, asyncSig, unhandledCallSites);
+assert.strictEqual(asyncTrapVerdict.isBreaking, true, 'Sync to async transition without await must be BREAKING');
+assert.strictEqual(asyncTrapVerdict.verdict, 'BREAKING');
+assert.ok(asyncTrapVerdict.reason.includes('unhandled Promise'), 'Reason must mention unhandled Promise');
+
+// Caller awaits fetchUser
+const awaitedCallerCode = `
+async function handleRequest() {
+  const user = await fetchUser(101);
+  return user.name;
+}
+`;
+const awaitedAst = acorn.parse(awaitedCallerCode, { ecmaVersion: 'latest', sourceType: 'module', locations: true });
+const awaitedCallSites = extractCallSitesInFile(awaitedCallerCode, awaitedAst, 'fetchUser');
+assert.strictEqual(awaitedCallSites[0].isAwaited, true);
+
+const awaitedVerdict = evaluateStructuralContract(syncSig, asyncSig, awaitedCallSites);
+assert.strictEqual(awaitedVerdict.isBreaking, false, 'Sync to async transition with await is COMPATIBLE');
+assert.strictEqual(awaitedVerdict.verdict, 'COMPATIBLE');
+console.log('✓ Test 32 Passed: Sync-to-Async transition accurately catches unhandled Promise caller traps.');
+
+// Test 33: Red-Team [CONCERN-2] Object Destructuring Parameter Mutations
+console.log('Testing Red-Team [CONCERN-2]: Object destructuring parameter mutations...');
+const oldDestructSig = {
+  name: 'initClient',
+  isAsync: false,
+  isGenerator: false,
+  params: [{
+    name: 'destructuredObject',
+    hasDefault: false,
+    isRest: false,
+    isDestructured: true,
+    keys: ['host', 'port']
+  }],
+  paramCount: 1,
+  requiredCount: 1
+};
+const newDestructSig = {
+  name: 'initClient',
+  isAsync: false,
+  isGenerator: false,
+  params: [{
+    name: 'destructuredObject',
+    hasDefault: false,
+    isRest: false,
+    isDestructured: true,
+    keys: ['hostname', 'port']
+  }],
+  paramCount: 1,
+  requiredCount: 1
+};
+
+const destructVerdict = evaluateStructuralContract(oldDestructSig, newDestructSig, [{ line: 1, argCount: 1 }]);
+assert.strictEqual(destructVerdict.isBreaking, true, 'Renaming destructured parameter key from host to hostname must be BREAKING');
+assert.strictEqual(destructVerdict.verdict, 'BREAKING');
+assert.ok(destructVerdict.reason.includes("'host' was removed"), 'Reason must specify missing property host');
+console.log('✓ Test 33 Passed: Object destructuring parameter mutations detected as BREAKING.');
+
+// Test 34: Red-Team [CONCERN-3] Offline Hermetic Execution without LLM
+console.log('Testing Red-Team [CONCERN-3]: Offline hermetic execution with zero network dependency...');
+const semOfflineDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-offline-'));
+try {
+  const libFile = path.join(semOfflineDir, 'mathLib.js');
+  const userFile = path.join(semOfflineDir, 'consumer.js');
+
+  fs.writeFileSync(libFile, `function add(a, b = 0) { return a + b; } module.exports = { add };`, 'utf8');
+  fs.writeFileSync(userFile, `const { add } = require('./mathLib'); function run() { return add(5); } module.exports = { run };`, 'utf8');
+
+  const offlineGraph = new SymbolGraph({ rootDir: semOfflineDir });
+  offlineGraph.build();
+
+  const startTime = Date.now();
+  const offlineResult = evaluateSemanticBlastRadius(
+    libFile,
+    ['add'],
+    [userFile],
+    offlineGraph,
+    {
+      oldSignatures: { add: { name: 'add', isAsync: false, isGenerator: false, params: [{ name: 'a', hasDefault: false, isRest: false, isDestructured: false, keys: [] }], paramCount: 1, requiredCount: 1 } },
+      newSignatures: { add: { name: 'add', isAsync: false, isGenerator: false, params: [{ name: 'a', hasDefault: false, isRest: false, isDestructured: false, keys: [] }, { name: 'b', hasDefault: true, isRest: false, isDestructured: false, keys: [] }], paramCount: 2, requiredCount: 1 } }
+    }
+  );
+  const duration = Date.now() - startTime;
+
+  assert.strictEqual(offlineResult.isSemanticAware, true);
+  assert.strictEqual(offlineResult.isDegraded, true, 'Offline mode must set isDegraded: true');
+  assert.strictEqual(offlineResult.mode, 'offline-ast-contract', 'Mode must be offline-ast-contract');
+  assert.strictEqual(offlineResult.hasBreaking, false);
+  assert.strictEqual(offlineResult.overallVerdict, 'COMPATIBLE');
+  assert.ok(duration < 100, `Evaluation must run locally in < 100ms, took ${duration}ms`);
+  console.log(`✓ Test 34 Passed: Offline hermetic execution verified in ${duration}ms with zero network calls.`);
+} finally {
+  fs.rmSync(semOfflineDir, { recursive: true, force: true });
+}
+
+// Test 35: Red-Team [CRITICAL-01 Fix] Zero-argument functions without diff do not false-positive BREAKING
+console.log('Testing Red-Team [CRITICAL-01 Fix]: Zero-argument function without diff is COMPATIBLE...');
+const semZeroDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-zero-'));
+try {
+  const serviceFile = path.join(semZeroDir, 'healthService.js');
+  const clientFile = path.join(semZeroDir, 'healthClient.js');
+
+  const serviceCode = `
+function getStatus() {
+  return "OK";
+}
+module.exports = { getStatus };
+`;
+  const clientCode = `
+const { getStatus } = require('./healthService');
+function check() {
+  return getStatus();
+}
+module.exports = { check };
+`;
+  fs.writeFileSync(serviceFile, serviceCode, 'utf8');
+  fs.writeFileSync(clientFile, clientCode, 'utf8');
+
+  const zeroGraph = new SymbolGraph({ rootDir: semZeroDir });
+  zeroGraph.build();
+
+  // Run calculateBlastRadius WITHOUT diff
+  const report = calculateBlastRadius(serviceFile, {
+    graph: zeroGraph,
+    semantic: true,
+    rootDir: semZeroDir
+  });
+
+  assert.strictEqual(report.semanticAnalysis.hasBreaking, false, '0-arg function must not be falsely flagged as BREAKING');
+  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'COMPATIBLE', 'Verdict must be COMPATIBLE');
+  assert.strictEqual(report.riskLevel, 'LOW', 'Risk level should stay LOW for unchanged 0-arg function');
+  console.log('✓ Test 35 Passed: Zero-argument function baseline evaluated without diff does not produce false-positive.');
+} finally {
+  fs.rmSync(semZeroDir, { recursive: true, force: true });
+}
+
+// Test 36: Red-Team [CRITICAL-02 Fix] File Rename Interception enforces HIGH risk and blocks semantic downgrade
+console.log('Testing Red-Team [CRITICAL-02 Fix]: File rename enforces HIGH risk and blocks semantic downgrade...');
+const semRenameDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-rename-'));
+try {
+  const serviceFile = path.join(semRenameDir, 'oldApi.js');
+  const clientFile = path.join(semRenameDir, 'client.js');
+
+  fs.writeFileSync(serviceFile, `function doWork() { return 1; } module.exports = { doWork };`, 'utf8');
+  fs.writeFileSync(clientFile, `const { doWork } = require('./oldApi'); doWork();`, 'utf8');
+
+  const renameGraph = new SymbolGraph({ rootDir: semRenameDir });
+  renameGraph.build();
+
+  // Git diff showing rename of oldApi.js to newApi.js
+  const renameDiff = `
+diff --git a/oldApi.js b/newApi.js
+similarity index 100%
+rename from oldApi.js
+rename to newApi.js
+`;
+
+  const report = calculateBlastRadius(serviceFile, {
+    graph: renameGraph,
+    diff: renameDiff,
+    diffAware: true,
+    semantic: true,
+    rootDir: semRenameDir
+  });
+
+  assert.strictEqual(report.riskLevel, 'HIGH', 'File rename must remain HIGH risk');
+  assert.ok(report.riskScore >= 90, `Risk score must be >= 90, got ${report.riskScore}`);
+  assert.strictEqual(report.semanticAnalysis.hasBreaking, true, 'File rename must be flagged as breaking');
+  assert.strictEqual(report.semanticAnalysis.mode, 'path-contract', 'Mode must be path-contract');
+  assert.ok(report.notes.includes('[SEMANTIC: BREAKING]'), 'Notes must indicate breaking path change');
+  console.log('✓ Test 36 Passed: File rename correctly intercepted as path-breaking change, preventing downgrade to LOW.');
+} finally {
+  fs.rmSync(semRenameDir, { recursive: true, force: true });
+}
+
+// Test 37: Red-Team [CRITICAL-03 Fix] MemberExpression namespace isolation eliminates global same-name false matches
+console.log('Testing Red-Team [CRITICAL-03 Fix]: MemberExpression namespace isolation...');
+const semScopeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-scope-'));
+try {
+  const dbServiceFile = path.join(semScopeDir, 'dbService.js');
+  const callerFile = path.join(semScopeDir, 'handler.js');
+
+  // dbService exports query(sql, params)
+  const dbServiceCode = `
+function query(sql, params) {
+  return [];
+}
+module.exports = { query };
+`;
+
+  // Caller imports dbService as db, but ALSO calls unrelated req.query() and map.query()
+  const callerCode = `
+const db = require('./dbService');
+
+function handleRequest(req, res) {
+  // Unrelated calls with 0 or 1 args on non-db objects
+  const qParam = req.query();
+  const cached = new Map().query();
+
+  // Genuine call to dbService
+  return db.query("SELECT * FROM users", []);
+}
+module.exports = { handleRequest };
+`;
+
+  fs.writeFileSync(dbServiceFile, dbServiceCode, 'utf8');
+  fs.writeFileSync(callerFile, callerCode, 'utf8');
+
+  const scopeGraph = new SymbolGraph({ rootDir: semScopeDir });
+  scopeGraph.build();
+
+  const callerAst = acorn.parse(callerCode, { ecmaVersion: 'latest', sourceType: 'module', locations: true });
+  const callSites = extractCallSitesInFile(callerCode, callerAst, 'query', dbServiceFile);
+
+  // Must ONLY match db.query(...), NOT req.query() or new Map().query()!
+  assert.strictEqual(callSites.length, 1, `Must match exactly 1 genuine call site, got ${callSites.length}`);
+  assert.strictEqual(callSites[0].binding, 'db.query');
+  assert.strictEqual(callSites[0].argCount, 2);
+  console.log('✓ Test 37 Passed: MemberExpression strictly isolates target namespace, rejecting req.query() false matches.');
+} finally {
+  fs.rmSync(semScopeDir, { recursive: true, force: true });
+}
+
+// Test 38: Red-Team [WARNING-01 to 06 Fixes] Defensive guards & edge cases
+console.log('Testing Red-Team [WARNING-01 to 06 Fixes]: Defensive guards verification...');
+
+// 1. WARNING-01: String default with comma
+const stringCommaHunk = `+ function greet(name, greeting = "Hello, world", options = {}) {`;
+const strCommaSig = extractSignatureFromHunk(stringCommaHunk, 'greet');
+assert.strictEqual(strCommaSig.paramCount, 3);
+assert.strictEqual(strCommaSig.requiredCount, 1);
+assert.strictEqual(strCommaSig.params[1].hasDefault, true);
+
+// 2. WARNING-02: Balanced parenthesis in default values
+const nestedParenHunk = `+ function schedule(task, delay = (1000 * 60), callback = () => {}) {`;
+const nestedParenSig = extractSignatureFromHunk(nestedParenHunk, 'schedule');
+assert.strictEqual(nestedParenSig.paramCount, 3);
+assert.strictEqual(nestedParenSig.requiredCount, 1);
+assert.strictEqual(nestedParenSig.params[1].hasDefault, true);
+assert.strictEqual(nestedParenSig.params[2].hasDefault, true);
+
+// 3. WARNING-03: Nested object destructuring mutations
+const deepOld = {
+  name: 'connectDb',
+  isAsync: false,
+  isGenerator: false,
+  params: [{
+    name: 'destructuredObject',
+    hasDefault: false,
+    isRest: false,
+    isDestructured: true,
+    keys: ['db.host', 'db.port']
+  }],
+  paramCount: 1,
+  requiredCount: 1
+};
+const deepNew = {
+  name: 'connectDb',
+  isAsync: false,
+  isGenerator: false,
+  params: [{
+    name: 'destructuredObject',
+    hasDefault: false,
+    isRest: false,
+    isDestructured: true,
+    keys: ['db.host'] // db.port was deleted!
+  }],
+  paramCount: 1,
+  requiredCount: 1
+};
+const deepDestructRes = evaluateStructuralContract(deepOld, deepNew, [{ line: 1, argCount: 1 }]);
+assert.strictEqual(deepDestructRes.isBreaking, true);
+assert.ok(deepDestructRes.reason.includes('db.port'));
+
+// 4. WARNING-04: Async LLM evaluator returns Promise -> TypeError thrown
+assert.throws(() => {
+  evaluateSemanticBlastRadius('/fake.js', ['test'], ['/caller.js'], null, {
+    llmEvaluator: () => Promise.resolve({ verdict: 'COMPATIBLE' })
+  });
+}, /Promise/);
+
+// 5. WARNING-06: Direct return inside async function propagates Promise safely
+const asyncReturnCode = `
+async function proxyCall() {
+  return targetFunction();
+}
+`;
+const asyncReturnAst = acorn.parse(asyncReturnCode, { ecmaVersion: 'latest', sourceType: 'module', locations: true });
+const asyncReturnCalls = extractCallSitesInFile(asyncReturnCode, asyncReturnAst, 'targetFunction');
+assert.strictEqual(asyncReturnCalls.length, 1);
+assert.strictEqual(asyncReturnCalls[0].isAwaited, true, 'Direct return in async function is treated as safely awaited/propagated');
+
+console.log('✓ Test 38 Passed: All warning edge cases (strings with commas, balanced parens, deep destructuring, async promise guard, async return propagation) verified.');
+
+console.log('\nAll 38 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');

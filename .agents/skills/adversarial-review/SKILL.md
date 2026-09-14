@@ -28,22 +28,40 @@ Before any core commit, the diff must be evaluated against four strict criteria:
 
 ---
 
-## 2. Mandatory Two-Tier Defense Gate
+## 2. Dual-Phase Adversarial Protocol
 
-### Tier 1: Automated Static Audit Script
-Run the zero-token local adversary auditor script on staged diffs for immediate baseline defense:
+### Phase 1: Design-Phase RFC Inquest Gate (方案前置对抗门)
+Before writing any code or requesting user sign-off for complex architectural features, the authoring Agent (Blue Team) must invoke an independent Red-Team reviewer to stress-test the implementation plan:
 
-```bash
-node .agents/scripts/runner.js adversary-check
-# or scan staged diff
-node .agents/scripts/adversary-check.js --staged
+```javascript
+invoke_subagent({
+  Role: "Adversarial RFC Reviewer",
+  TypeName: "research",
+  Prompt: `You are the cold-eyed Adversarial RFC Reviewer (Red Team).
+Critique the proposed technical implementation plan in implementation_plan.md and architecture artifacts:
+1. Hallucination & False Confidence: Could an LLM or heuristic fail silently and approve breaking changes?
+2. Boundary & Arity Traps: What parameter structures (destructuring, defaults, rest, async) could break?
+3. Performance & Token Exhaustion: Could context snippets or large graphs cause runtime bloat or timeouts?
+4. Offline & Sandbox Resilience: Does this break in offline CI without API keys or external network?
+5. Overengineering & YAGNI: Is this introducing unwarranted complexity?
+
+Deliver a formal 《方案红队质询函》 (Design Adversarial Inquest) categorized by [BLOCKER], [CONCERN], and [RECOMMENDATION].`
+});
 ```
+
+The Blue Team must incorporate specific defensive clauses and fail-safes into `implementation_plan.md` under `## Red-Team Adversarial Inquest & Defensive Clauses` before requesting user approval to code.
 
 ---
 
-### Tier 2: Dedicated Subagent Red-Team Audit (Mandatory for Core Modules)
-When authoring or refactoring sensitive architectural components (`src/memory/`, `src/graph/`, `src/agent/`, `.agents/scripts/`), **Tier 1 alone is NOT sufficient**. The Agent MUST invoke an independent read-only auditor subagent:
+### Phase 2: Code-Phase Commit Audit Gate (代码后置对抗门)
+After completing TDD implementation and all unit tests pass, the diff must undergo two-tier code inspection prior to any local `git commit`:
 
+#### Tier 1: Automated Static Baseline Script
+```bash
+node .agents/scripts/runner.js adversary-check --staged
+```
+
+#### Tier 2: Dedicated Subagent Code Audit (Mandatory for Core Modules)
 ```javascript
 invoke_subagent({
   Role: "Adversarial Code Auditor",
@@ -56,7 +74,7 @@ Inspect the pending changes and git diff across the four cold-eye lenses and edg
 4. VCS & Artifact Hygiene: Are temporary files, databases, or sensitive configs properly ignored?
 5. Edge Cases & Attack Scenarios: What runtime inputs, dynamic properties, or circular paths could break this code?
 
-Deliver a formal 《红蓝对抗审计裁决书》 (Adversarial Verdict) categorized by [CRITICAL], [WARNING], and [SUGGESTION].`
+Deliver a formal 《代码红队裁决书》 (Code Adversarial Verdict) categorized by [CRITICAL], [WARNING], and [SUGGESTION].`
 });
 ```
 
