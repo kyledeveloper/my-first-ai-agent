@@ -106,14 +106,17 @@ console.log('✓ Test 4 Passed: CLI correctly blocks execution (exit code 1) on 
 console.log('Testing Git Hook Installer...');
 const { installHooks } = require(installerPath);
 const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-push-hooks-'));
-fs.mkdirSync(path.join(tmpRepo, '.git', 'hooks'), { recursive: true });
-const hookFilePath = installHooks({ repoRoot: tmpRepo });
-assert.strictEqual(hookFilePath, path.join(tmpRepo, '.git', 'hooks', 'pre-push'));
-assert.ok(fs.existsSync(hookFilePath), 'pre-push hook must be written under the supplied repoRoot');
-const hookContent = fs.readFileSync(hookFilePath, 'utf8');
-assert.ok(hookContent.includes('pre-push-check'), 'Hook script should call pre-push-check');
-fs.rmSync(tmpRepo, { recursive: true, force: true });
-console.log('✓ Test 5 Passed: Git hook installer writes an executable pre-push hook into an isolated repo.');
+try {
+  fs.mkdirSync(path.join(tmpRepo, '.git', 'hooks'), { recursive: true });
+  const hookFilePath = installHooks({ repoRoot: tmpRepo });
+  assert.strictEqual(hookFilePath, path.join(tmpRepo, '.git', 'hooks', 'pre-push'));
+  assert.ok(fs.existsSync(hookFilePath), 'pre-push hook must be written under the supplied repoRoot');
+  const hookContent = fs.readFileSync(hookFilePath, 'utf8');
+  assert.ok(hookContent.includes('pre-push-check'), 'Hook script should call pre-push-check');
+  console.log('✓ Test 5 Passed: Git hook installer writes an executable pre-push hook into an isolated repo.');
+} finally {
+  fs.rmSync(tmpRepo, { recursive: true, force: true });
+}
 
 // Test 6: Diff Deletion Test - Removing a secret must NOT block push
 console.log('Testing Diff Deletion (removing old secrets should not be flagged)...');

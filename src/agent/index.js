@@ -183,11 +183,16 @@ class AgentLoop {
 
     if (!result.ok && recordOnFailure) {
       const prior = planned.lessons[0];
+      const errorSignature = String(result.stderr || '')
+        .split('\n')
+        .find(l => l.includes('Error') || l.includes('fail') || l.includes('invalid')) || '';
       recorded = this.reflect({
         intent,
         trigger_pattern: `tool:${chosen}`,
         failure_mode: String(result.stderr || result.stdout || 'non-zero exit').slice(0, 500),
-        root_cause: `Tool "${chosen}" exited with status ${result.status}`,
+        root_cause: errorSignature
+          ? `Tool "${chosen}" failed: ${errorSignature.trim().slice(0, 150)} (status ${result.status})`
+          : `Tool "${chosen}" exited with status ${result.status}`,
         corrective_heuristic: prior
           ? prior.corrective_heuristic
           : `Inspect stderr for ${chosen}, fix the root cause, then re-run the agent loop.`,

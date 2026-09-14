@@ -9,8 +9,10 @@ const { AgentLoop } = require('../src/agent/index');
 console.log('Running Unified Agent Loop Unit Tests...');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-loop-'));
-const okScript = path.join(tmp, 'ok-tool.js');
-const failScript = path.join(tmp, 'fail-tool.js');
+let mem = null;
+try {
+  const okScript = path.join(tmp, 'ok-tool.js');
+  const failScript = path.join(tmp, 'fail-tool.js');
 fs.writeFileSync(okScript, 'console.log("ok-output");\n');
 fs.writeFileSync(failScript, 'console.error("simulated-failure"); process.exit(2);\n');
 const registryPath = path.join(tmp, 'registry.json');
@@ -30,7 +32,7 @@ fs.writeFileSync(registryPath, JSON.stringify({
   }
 }, null, 2));
 
-const mem = new LongTermMemory(':memory:');
+mem = new LongTermMemory(':memory:');
 mem.recordExperience({
   intent: 'Install sqlite native module',
   trigger_pattern: 'npm install better-sqlite3',
@@ -146,8 +148,8 @@ const cliTools = spawnSync(process.execPath, [
 assert.strictEqual(cliTools.status, 0, `CLI tools should exit 0, stderr=${cliTools.stderr}`);
 const listed = JSON.parse(cliTools.stdout.trim());
 assert.ok(listed.tools.some(t => t.name === 'ok-tool'));
-console.log('✓ Test 11 Passed: CLI tools --json lists the configured registry.');
-
-mem.close();
-fs.rmSync(tmp, { recursive: true, force: true });
 console.log('\nAll 11 Unified Agent Loop tests passed successfully! 🎉');
+} finally {
+  if (mem) mem.close();
+  fs.rmSync(tmp, { recursive: true, force: true });
+}

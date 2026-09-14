@@ -1,18 +1,20 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawnSync } = require('child_process');
 const { ToolmakerEngine } = require('../src/toolmaker/index');
 
 console.log('Running Self-Toolmaker Unit Tests...');
 
-const testRegistryPath = path.join(__dirname, '../.agents/scripts/test_registry.json');
-if (fs.existsSync(testRegistryPath)) fs.unlinkSync(testRegistryPath);
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'toolmaker-test-'));
+const testRegistryPath = path.join(tmpDir, 'test_registry.json');
 
-const toolmaker = new ToolmakerEngine({
-  dbOrPath: ':memory:',
-  registryPath: testRegistryPath
-});
+try {
+  const toolmaker = new ToolmakerEngine({
+    dbOrPath: ':memory:',
+    registryPath: testRegistryPath
+  });
 
 // Test 1: Pattern tracking and threshold trigger
 console.log('Testing PatternTracker frequency accumulation...');
@@ -90,8 +92,20 @@ const parsedOutput = JSON.parse(runRes.stdout.trim());
 assert.strictEqual(parsedOutput.sum, 300, 'Sum should equal 300');
 console.log('✓ Test 5 Passed: Synthesized tool executes properly and produces expected output.');
 
-// Cleanup test script and registry
-if (fs.existsSync(toolMeta.scriptPath)) fs.unlinkSync(toolMeta.scriptPath);
-if (fs.existsSync(testRegistryPath)) fs.unlinkSync(testRegistryPath);
+// Test 6: Syntax validation rollback on invalid JS (Auditor Recommendation)
+console.log('Testing ToolSynthesizer syntax validation rollback on invalid code...');
+assert.throws(() => {
+  toolmaker.synthesizeTool({
+    name: 'broken-tool',
+    description: 'A tool with invalid JavaScript syntax',
+    codeBody: 'const invalid syntax = ;'
+  });
+}, /Synthesized script failed syntax validation/);
+const brokenPath = path.join(tmpDir, 'broken-tool.js');
+assert.strictEqual(fs.existsSync(brokenPath), false, 'Failed tool script must be unlinked and not leave orphan files');
+console.log('✓ Test 6 Passed: Syntax validation failure cleanly rolls back with zero orphan files.');
 
-console.log('\nAll 5 Self-Toolmaker tests passed successfully! 🎉');
+console.log('\nAll 6 Self-Toolmaker tests passed successfully! 🎉');
+} finally {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+}
