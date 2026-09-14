@@ -147,5 +147,20 @@ node .agents/scripts/runner.js audit-locales
 
 ---
 
+## Acknowledgements & Credits
+
+We extend our sincere gratitude to the open-source creators and pioneers whose specialized skills and paradigms empowered this agent:
+
+- **[Ponytail](https://github.com/DietrichGebert/ponytail)** by **[Dietrich Gebert](https://github.com/DietrichGebert)**:
+  - The minimalist, anti-overengineering "lazy senior developer" behavioral skill and 7-rung YAGNI necessity ladder. Licensed under MIT.
+- **[Archify](https://github.com/tt-a1i/archify)** by **[tt-a1i](https://github.com/tt-a1i)** (derived from Cocoon-AI/architecture-diagram-generator):
+  - The industrial-grade interactive visual diagram compiler rendering animated trace flows and dual-theme SVGs. Licensed under MIT.
+- **[LobeHub i18n Workflow](https://github.com/lobehub/lobe-chat)** by **[LobeHub](https://github.com/lobehub)**:
+  - Best practices and flat-key dictionary guidelines for react-i18next and locale namespace parity.
+- **[Reflexion](https://arxiv.org/abs/2303.11366)** by **Noah Shinn, et al.**:
+  - The pioneering self-reflective memory architecture pattern transforming trial-and-error feedback into durable heuristic rules.
+
+---
+
 ## License
 MIT

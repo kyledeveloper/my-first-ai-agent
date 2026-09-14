@@ -147,5 +147,20 @@ node .agents/scripts/runner.js audit-locales
 
 ---
 
+## 致谢与开源致敬 (Acknowledgements & Credits)
+
+衷心感谢为本项目提供核心灵感、开源技能体系与前沿学术思想的开发者与先驱者：
+
+- **[Ponytail](https://github.com/DietrichGebert/ponytail)**（作者：**[Dietrich Gebert](https://github.com/DietrichGebert)**）：
+  - 反过度设计与“老兵级极简主义”行为规范技能，以及极具实用价值的 7 阶 YAGNI 必要性阶梯。遵循 MIT 开源协议。
+- **[Archify](https://github.com/tt-a1i/archify)**（作者：**[tt-a1i](https://github.com/tt-a1i)**，基于 Cocoon-AI/architecture-diagram-generator）：
+  - 工业级交互式动态图谱编译器，提供明暗自适应主题、流光粒子轨迹（Trace Motion）与矢量导出。遵循 MIT 开源协议。
+- **[LobeHub i18n 规范](https://github.com/lobehub/lobe-chat)**（作者：**[LobeHub](https://github.com/lobehub)**）：
+  - 专业级 react-i18next 扁平键值对命名规范与命名空间同步理念。
+- **[Reflexion 学术范式](https://arxiv.org/abs/2303.11366)**（作者：**Noah Shinn 等**）：
+  - 将环境试错与因果反思升华为持久化经验规则的生成式智能体长效记忆论文与核心思想。
+
+---
+
 ## 开源协议
 MIT
