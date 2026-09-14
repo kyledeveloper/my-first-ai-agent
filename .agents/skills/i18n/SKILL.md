@@ -18,9 +18,9 @@ user-invocable: false
 ```typescript
 // ✅ Correct
 export default {
-  'alert.cloud.action': '立即体验',
-  'sync.actions.sync': '立即同步',
-  'sync.status.ready': '已连接',
+  'alert.cloud.action': 'Try Now',
+  'sync.actions.sync': 'Sync Now',
+  'sync.status.ready': 'Connected',
 };
 
 // ❌ Avoid nested objects
@@ -34,19 +34,19 @@ export default {
 **Parameters:** Use `{{variableName}}` syntax
 
 ```typescript
-'alert.cloud.desc': '我们提供 {{credit}} 额度积分',
+'alert.cloud.desc': 'We provide {{credit}} credits',
 ```
 
 **Avoid key conflicts:**
 
 ```typescript
 // ❌ Conflict
-'clientDB.solve': '自助解决',
-'clientDB.solve.backup.title': '数据备份',
+'clientDB.solve': 'Self Resolve',
+'clientDB.solve.backup.title': 'Data Backup',
 
 // ✅ Solution
-'clientDB.solve.action': '自助解决',
-'clientDB.solve.backup.title': '数据备份',
+'clientDB.solve.action': 'Self Resolve',
+'clientDB.solve.backup.title': 'Data Backup',
 ```
 
 ## Workflow

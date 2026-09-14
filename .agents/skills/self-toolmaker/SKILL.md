@@ -4,14 +4,14 @@ description: AI Agent Self-Toolmaking and Script Assets Engine. Consult this ski
 user-invocable: true
 ---
 
-# Self-Toolmaker: AI Agent 自造工具系统
+# Self-Toolmaker: AI Agent Self-Toolmaking System
 
 This skill allows the AI Agent to evolve into a **Toolmaker** rather than just a tool user.
 When project-specific tasks are performed repeatedly, the agent encapsulates them into permanent, reliable, tested CLI tools.
 
 ---
 
-## 1. Using Existing Synthesized Tools (优先调用已有工具)
+## 1. Using Existing Synthesized Tools
 
 Before executing multi-step ad-hoc shell commands, **always check if a project-specific tool already exists**:
 
@@ -26,17 +26,17 @@ node .agents/scripts/runner.js <tool-name> [options]
 ```
 
 ### Currently Available Project Tools:
-- **`audit-locales`**: Audit and compare keys across locale files (e.g. `zh-CN` vs `en-US`) to detect missing or extra translation keys.
+- **`audit-locales`**: Audit and compare keys across locale files (e.g., `zh-CN` vs `en-US`) to detect missing or extra translation keys.
   - Usage: `node .agents/scripts/runner.js audit-locales [--base locales/zh-CN] [--target locales/en-US] [--json]`
 
 ---
 
-## 2. When to Synthesize New Tools (何时触发自造工具)
+## 2. When to Synthesize New Tools
 
-When any of the following conditions occur:
-1. You notice you or the user are performing the same multi-step data processing or code conversion task for the **3rd time**;
-2. A complex one-liner regex, jq, or AST manipulation command is frequently used;
-3. A repetitive project health-check or build verification step is needed.
+Synthesize a tool when any of the following conditions occur:
+1. You or the user perform the same multi-step data processing or code conversion task for the **3rd time**;
+2. A complex one-liner regex, jq, or AST manipulation command is frequently needed;
+3. A repetitive project health-check or build verification step is established.
 
 ---
 

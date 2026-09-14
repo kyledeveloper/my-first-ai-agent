@@ -90,7 +90,7 @@ class ReflexionEngine {
 
     return candidates.map(c => ({
       ...c,
-      ruleText: `- **[When: ${c.trigger_pattern}]**: ${c.corrective_heuristic} (根因: ${c.root_cause}, 历史规避次数: ${c.hit_count})`
+      ruleText: `- **[When: ${c.trigger_pattern}]**: ${c.corrective_heuristic} (Root cause: ${c.root_cause}, Bypass count: ${c.hit_count})`
     }));
   }
 }

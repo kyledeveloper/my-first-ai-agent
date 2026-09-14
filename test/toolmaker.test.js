@@ -18,7 +18,7 @@ const toolmaker = new ToolmakerEngine({
 console.log('Testing PatternTracker frequency accumulation...');
 const t1 = toolmaker.track({
   nameSlug: 'test-audit',
-  intentSummary: '审计多语言文件中的未翻译项',
+  intentSummary: 'Audit untranslated items in locale files',
   commandTemplate: 'node check-i18n.js --strict'
 });
 assert.strictEqual(t1.occurrences, 1);
@@ -26,14 +26,14 @@ assert.strictEqual(t1.shouldSynthesize, false);
 
 const t2 = toolmaker.track({
   nameSlug: 'test-audit',
-  intentSummary: '审计多语言文件中的未翻译项'
+  intentSummary: 'Audit untranslated items in locale files'
 });
 assert.strictEqual(t2.occurrences, 2);
 assert.strictEqual(t2.shouldSynthesize, false);
 
 const t3 = toolmaker.track({
   nameSlug: 'test-audit',
-  intentSummary: '审计多语言文件中的未翻译项'
+  intentSummary: 'Audit untranslated items in locale files'
 });
 assert.strictEqual(t3.occurrences, 3);
 assert.strictEqual(t3.shouldSynthesize, true, 'Occurrences >= 3 should trigger synthesis flag');

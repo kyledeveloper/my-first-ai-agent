@@ -2,28 +2,28 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "长期反思记忆与多维检索系统架构",
-    "locale": "zh-CN",
+    "title": "Long-Term Reflexive Memory & Multi-Dimensional Retrieval Architecture",
+    "locale": "en",
     "output": "reflexion-memory-architecture.html",
     "quality_profile": "showcase",
     "views": [
       {
         "id": "pre-task-retrieval",
-        "label": "前置多维检索流",
+        "label": "Pre-Task Retrieval Flow",
         "focus": ["agent_core", "memory_facade", "retriever", "scoring_engine", "sqlite_db"],
-        "note": "高危任务执行前通过 CJK 分词匹配并基于相关度、新近度、重要度三维加权排序"
+        "note": "Pre-task query using FTS5 tokenization with 3D weighted scoring: Relevance, Recency, and Importance"
       },
       {
         "id": "post-recovery-reflexion",
-        "label": "事后反思提炼流",
+        "label": "Post-Recovery Reflexion Flow",
         "focus": ["agent_core", "memory_facade", "reflexion_engine", "sqlite_db"],
-        "note": "任务异常恢复后结构化提取因果链与避坑指南，自动写入并去重强化"
+        "note": "Distills causal chain and corrective heuristics after error recovery, deduplicating and reinforcing memory"
       },
       {
         "id": "rule-consolidation",
-        "label": "规则晋升固化",
+        "label": "Rule Consolidation",
         "focus": ["reflexion_engine", "consolidation_checker", "agents_rules"],
-        "note": "历史验证规避次数 >= 3 的高频经验候选晋升为 AGENTS.md 永久规则"
+        "note": "Reflections with hit_count >= 3 are flagged as candidates and promoted to permanent AGENTS.md rules"
       }
     ]
   },
@@ -31,7 +31,7 @@
     {
       "id": "agent_core",
       "type": "external",
-      "label": "Agent 核心",
+      "label": "Agent Core",
       "sublabel": "Planner / Executor",
       "pos": [40, 250],
       "size": [140, 60]
@@ -39,7 +39,7 @@
     {
       "id": "memory_facade",
       "type": "backend",
-      "label": "长期记忆门面",
+      "label": "Memory Facade",
       "sublabel": "index.js (getMemory)",
       "pos": [260, 250],
       "size": [150, 60]
@@ -47,15 +47,15 @@
     {
       "id": "retriever",
       "type": "backend",
-      "label": "多维检索引擎",
-      "sublabel": "retriever.js (CJK + FTS5)",
+      "label": "Retrieval Engine",
+      "sublabel": "retriever.js (Tokens + FTS5)",
       "pos": [480, 120],
       "size": [150, 60]
     },
     {
       "id": "scoring_engine",
       "type": "backend",
-      "label": "三维打分器",
+      "label": "3D Scoring Engine",
       "sublabel": "Final = α·S_rel + β·S_rec + γ·S_imp",
       "tag": "α:0.5 β:0.2 γ:0.3",
       "pos": [700, 120],
@@ -64,7 +64,7 @@
     {
       "id": "sqlite_db",
       "type": "database",
-      "label": "持久化记忆库",
+      "label": "Persistent SQLite",
       "sublabel": ".agents/memory.db",
       "tag": "WAL + FTS5",
       "pos": [700, 250],
@@ -73,24 +73,24 @@
     {
       "id": "reflexion_engine",
       "type": "backend",
-      "label": "反思提炼引擎",
-      "sublabel": "reflexion.js (提炼与自强化)",
+      "label": "Reflexion Engine",
+      "sublabel": "reflexion.js (Distill & Dedupe)",
       "pos": [480, 380],
       "size": [150, 60]
     },
     {
       "id": "consolidation_checker",
       "type": "security",
-      "label": "规则晋升评估",
-      "sublabel": "Consolidation Check",
+      "label": "Consolidation Check",
+      "sublabel": "Rule Promotion Evaluator",
       "pos": [700, 380],
       "size": [160, 60]
     },
     {
       "id": "agents_rules",
       "type": "frontend",
-      "label": "项目永久规约",
-      "sublabel": "AGENTS.md 硬性铁律",
+      "label": "Project Rules",
+      "sublabel": "AGENTS.md Authoritative Rules",
       "pos": [930, 380],
       "size": [140, 60]
     }
@@ -98,12 +98,12 @@
   "boundaries": [
     {
       "kind": "region",
-      "label": "长期反思记忆核心引擎 (Reflexion Memory Engine)",
+      "label": "Reflexion Memory Engine",
       "wraps": ["memory_facade", "retriever", "scoring_engine", "sqlite_db", "reflexion_engine", "consolidation_checker"]
     },
     {
       "kind": "security-group",
-      "label": "多维检索打分流水线",
+      "label": "Multi-Dimensional Scoring Pipeline",
       "wraps": ["retriever", "scoring_engine"]
     }
   ],
@@ -112,7 +112,7 @@
       "id": "agent-facade",
       "from": "agent_core",
       "to": "memory_facade",
-      "label": "任务预检与反思",
+      "label": "Pre-check",
       "variant": "emphasis"
     },
     {
@@ -121,13 +121,13 @@
       "to": "retriever",
       "fromSide": "top",
       "toSide": "left",
-      "label": "前置检索"
+      "label": "Query Lessons"
     },
     {
       "id": "retriever-scoring",
       "from": "retriever",
       "to": "scoring_engine",
-      "label": "候选经验"
+      "label": "Score"
     },
     {
       "id": "retriever-db",
@@ -135,7 +135,7 @@
       "to": "sqlite_db",
       "fromSide": "bottom",
       "toSide": "left",
-      "label": "FTS5 查询"
+      "label": "FTS5 Match"
     },
     {
       "id": "scoring-db",
@@ -143,7 +143,7 @@
       "to": "sqlite_db",
       "fromSide": "bottom",
       "toSide": "top",
-      "label": "激活刷新",
+      "label": "Refresh Activation",
       "labelDy": 24
     },
     {
@@ -152,7 +152,7 @@
       "to": "reflexion_engine",
       "fromSide": "bottom",
       "toSide": "left",
-      "label": "异常反思"
+      "label": "Reflect Failure"
     },
     {
       "id": "reflexion-db",
@@ -160,49 +160,49 @@
       "to": "sqlite_db",
       "fromSide": "top",
       "toSide": "left",
-      "label": "写入与强化",
+      "label": "Store & Reinforce",
       "variant": "emphasis"
     },
     {
       "id": "reflexion-checker",
       "from": "reflexion_engine",
       "to": "consolidation_checker",
-      "label": "频次检查"
+      "label": "Check"
     },
     {
       "id": "checker-rules",
       "from": "consolidation_checker",
       "to": "agents_rules",
-      "label": "规则晋升",
+      "label": "Promote Rule",
       "variant": "emphasis"
     }
   ],
   "cards": [
     {
       "dot": "cyan",
-      "title": "前置检索与三维打分",
+      "title": "Pre-Task Retrieval & 3D Scoring",
       "items": [
-        "高危任务执行前通过 CJK Bigram 分词提取关键词",
-        "综合相关度 (FTS5)、新近度 (指数时间衰减) 与重要度 (严重等级) 排序",
-        "格式化提炼高密度避坑指南注入 Agent 提示词"
+        "Extract query tokens before executing high-risk commands",
+        "Rank by Relevance (FTS5), Recency (exponential decay), and Importance (severity level)",
+        "Inject high-density heuristic guidance into Agent prompt (< 100 tokens)"
       ]
     },
     {
       "dot": "emerald",
-      "title": "事后反思与自强化",
+      "title": "Post-Recovery Reflexion & Reinforcement",
       "items": [
-        "任务异常恢复后结构化提取因果链与深层根因",
-        "相同触发场景自动识别去重，自增命中次数并提升置信度",
-        "检索命中经验自动刷新最后激活时间戳 (last_accessed_at)"
+        "Extract causal chain and root cause after error recovery",
+        "Deduplicate identical triggers, increment hit count, and boost confidence",
+        "Refresh last_accessed_at timestamp upon retrieval hit"
       ]
     },
     {
       "dot": "rose",
-      "title": "存储架构与规则晋升",
+      "title": "Storage Engine & Rule Consolidation",
       "items": [
-        "底层采用 Node.js 原生 node:sqlite (WAL 模式)，零外部编译依赖",
-        "当单条经验历史规避次数 hit_count >= 3 时触发晋升候选",
-        "固化为 AGENTS.md 权威项目规则，形成工程级自进化护栏"
+        "Powered by native node:sqlite with zero native compilation dependencies",
+        "Trigger rule promotion candidate when hit_count >= 3",
+        "Consolidate into AGENTS.md for permanent project guardrails"
       ]
     }
   ]

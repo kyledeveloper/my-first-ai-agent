@@ -248,16 +248,16 @@ class ExperienceRetriever {
 
     const lines = [
       '> [!IMPORTANT]',
-      '> **历史反思经验提示 (Reflexion Memory)**:'
+      '> **Historical Reflexion Guidance**:'
     ];
 
     for (const l of lessons) {
       const scoreBadge = showScores
-        ? ` *(评分: ${l.score} [相关度 ${l.relScore} | 新近度 ${l.recScore} | 重要度 ${l.impScore}])*`
+        ? ` *(Score: ${l.score} [Relevance: ${l.relScore} | Recency: ${l.recScore} | Importance: ${l.impScore}])*`
         : '';
-      const causeText = l.root_cause ? ` *(根因: ${l.root_cause})*` : '';
-      lines.push(`> • **场景**: ${l.trigger_pattern}`);
-      lines.push(`>   **避坑指南**: ${l.corrective_heuristic}${causeText}${scoreBadge}`);
+      const causeText = l.root_cause ? ` *(Root Cause: ${l.root_cause})*` : '';
+      lines.push(`> • **Scenario**: ${l.trigger_pattern}`);
+      lines.push(`>   **Heuristic Advice**: ${l.corrective_heuristic}${causeText}${scoreBadge}`);
     }
 
     return lines.join('\n');

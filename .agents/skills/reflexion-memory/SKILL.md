@@ -4,7 +4,7 @@ description: Long-Term Reflexive Memory system for the AI Agent. Consult this sk
 user-invocable: true
 ---
 
-# Long-Term Reflexive Memory (长期经验与反思记忆系统)
+# Long-Term Reflexive Memory
 
 This skill equips the AI Agent with an episodic, self-improving memory mechanism based on the **Reflexion** architectural pattern.
 Unlike static document RAG, this memory indexes **causal relationships, failure patterns, root causes, and corrective heuristics**.
@@ -22,17 +22,17 @@ Before executing commands or plans involving:
 
 Run the memory search command to check for past lessons:
 ```bash
-node src/memory/index.js search "<your task intent in Chinese or English>"
+node src/memory/index.js search "<your task intent>"
 ```
 
-### Multi-Dimensional Scoring (三维加权打分机制)
+### Multi-Dimensional Scoring
 Retrieval employs the Generative Agents / MemGPT multi-dimensional scoring model:
 $$\text{Final Score} = \alpha \cdot S_{\text{rel}} + \beta \cdot S_{\text{rec}} + \gamma \cdot S_{\text{imp}}$$
-- **Relevance $S_{\text{rel}}$ ($\alpha = 0.5$)**: FTS5 BM25 + CJK Bigram keyword matching + domain tag overlap.
+- **Relevance $S_{\text{rel}}$ ($\alpha = 0.5$)**: FTS5 BM25 + keyword matching + domain tag overlap.
 - **Recency $S_{\text{rec}}$ ($\beta = 0.2$)**: Exponential decay $e^{-\lambda \Delta t}$ with 14-day half-life; hit retrieval refreshes activation timestamp.
 - **Importance $S_{\text{imp}}$ ($\gamma = 0.3$)**: Inherent severity / importance rating (0.1~1.0) reinforced by log-scaled `hit_count`.
 
-If relevant lessons are returned, **strictly follow the `避坑指南 (Corrective Heuristic)`** and proactively inform the user of the potential pitfall before running hazardous commands.
+If relevant lessons are returned, **strictly follow the `Heuristic Advice (Corrective Heuristic)`** and proactively inform the user of the potential pitfall before running hazardous commands.
 
 ---
 
@@ -59,7 +59,7 @@ getMemory().recordExperience({
 
 ---
 
-## 3. Heuristic Distillation Standard (反思提炼规范)
+## 3. Heuristic Distillation Standard
 
 Good reflections are **concise, causal, and actionable**:
 - ❌ **Poor Heuristic**: "Command failed with code 7. Tried sudo next." *(No causality, not actionable)*
@@ -67,10 +67,10 @@ Good reflections are **concise, causal, and actionable**:
 
 ---
 
-## 4. Memory Consolidation (经验晋升为永久规则)
+## 4. Memory Consolidation (Promoting Experience to Permanent Rules)
 
 Check for high-frequency memories:
 ```bash
 node src/memory/index.js stats
 ```
-When a reflection's `hit_count >= 3`, promote it to `.agents/rules/AGENTS.md` as an authoritative project rule.
+When a reflection's `hit_count >= 3`, promote it to `AGENTS.md` as an authoritative project rule.

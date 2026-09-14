@@ -3,31 +3,31 @@ const { getToolmaker } = require('../src/toolmaker/index');
 const { spawnSync } = require('child_process');
 
 console.log('====================================================');
-console.log('  🛠️  AI Agent Self-Toolmaker: 动态自造工具系统演练');
+console.log('  🛠️  AI Agent Self-Toolmaker: System Demo');
 console.log('====================================================\n');
 
 const toolmaker = getToolmaker();
 
-// 1. 模拟开发者在当前项目里反复执行同一类高频任务（例如：排查多语言翻译缺失）
-console.log('📊 模拟高频任务触发跟踪: "多语言字典 Key 缺失比对与审计"...');
+// 1. Simulate recurring high-frequency task: comparing locale keys
+console.log('📊 Simulating high-frequency task tracking: "Audit locale key discrepancies"...');
 const taskName = 'audit-locales';
-const taskIntent = '比对 zh-CN 与 en-US 语言包中的 key 差异并报告缺失项';
+const taskIntent = 'Compare translation keys between zh-CN and en-US to report missing keys';
 
-console.log('• 第 1 次执行任务: 临时手写脚本...');
+console.log('• Execution #1: Ad-hoc manual script execution...');
 toolmaker.track({ nameSlug: taskName, intentSummary: taskIntent });
 
-console.log('• 第 2 次执行任务: 再次临时拼接命令...');
+console.log('• Execution #2: Repeating ad-hoc shell command...');
 toolmaker.track({ nameSlug: taskName, intentSummary: taskIntent });
 
-console.log('• 第 3 次执行任务: 触发频次阈值 (>= 3 次)！');
+console.log('• Execution #3: Triggering threshold (>= 3 times)!');
 const check = toolmaker.track({ nameSlug: taskName, intentSummary: taskIntent });
 
 if (check.shouldSynthesize) {
-  console.log('\n🔔 [Toolmaker 自动触发] 检测到该任务已执行 3 次，进入自动脚本合成流程！');
+  console.log('\n🔔 [Toolmaker Triggered] Detected task performed 3 times, initiating tool synthesis!');
 }
 
-// 2. 自动化合成专门的 CLI 脚本：.agents/scripts/audit-locales.js
-console.log('\n⚙️ 正在合成专用 CLI 工具: .agents/scripts/audit-locales.js ...');
+// 2. Synthesize dedicated CLI script: .agents/scripts/audit-locales.js
+console.log('\n⚙️ Synthesizing dedicated CLI tool: .agents/scripts/audit-locales.js ...');
 
 const auditToolCode = `
     const baseDir = path.resolve(process.cwd(), args.base || 'locales/zh-CN');
@@ -60,8 +60,8 @@ const auditToolCode = `
       const baseJson = JSON.parse(fs.readFileSync(basePath, 'utf8'));
       const targetJson = JSON.parse(fs.readFileSync(targetPath, 'utf8'));
 
-      const baseKeys = Object.keys(baseJson);
-      const targetKeys = Object.keys(targetJson);
+      const baseKeys = getFlattenedKeys(baseJson);
+      const targetKeys = getFlattenedKeys(targetJson);
 
       const missingInTarget = baseKeys.filter(k => !targetKeys.includes(k));
       const extraInTarget = targetKeys.filter(k => !baseKeys.includes(k));
@@ -78,16 +78,16 @@ const auditToolCode = `
     if (args.json) {
       console.log(JSON.stringify(report, null, 2));
     } else {
-      console.log(\`=== 🌐 多语言包审计结果 (\${report.baseLocale} ➔ \${report.targetLocale}) ===\`);
-      console.log(\`审计文件数: \${report.filesAudited}\`);
+      console.log(\`=== 🌐 Locale Key Audit Result (\${report.baseLocale} ➔ \${report.targetLocale}) ===\`);
+      console.log(\`Files Audited: \${report.filesAudited}\`);
       if (report.discrepancies.length === 0) {
-        console.log('✅ 所有语言包 Key 100% 对齐，无缺失项！');
+        console.log('✅ All locale keys are 100% synchronized with zero missing entries.');
       } else {
-        console.log(\`⚠️ 发现 \${report.discrepancies.length} 处不一致:\`);
+        console.log(\`⚠️ Found \${report.discrepancies.length} discrepancy item(s):\`);
         for (const d of report.discrepancies) {
-          console.log(\`  • 文件: \${d.file}\`);
-          if (d.missingInTarget) console.log(\`    缺失 Key: \${d.missingInTarget.join(', ')}\`);
-          if (d.extraInTarget) console.log(\`    多余 Key: \${d.extraInTarget.join(', ')}\`);
+          console.log(\`  • File: \${d.file}\`);
+          if (d.missingInTarget) console.log(\`    Missing Keys: \${d.missingInTarget.join(', ')}\`);
+          if (d.extraInTarget) console.log(\`    Extra Keys: \${d.extraInTarget.join(', ')}\`);
         }
       }
     }
@@ -95,10 +95,10 @@ const auditToolCode = `
 
 const synthesized = toolmaker.synthesizeTool({
   name: taskName,
-  description: '快速审计并比对各语言包（如 zh-CN vs en-US）之间的 Key 是否对齐',
+  description: 'Audit and compare translation keys across locale files (e.g. zh-CN vs en-US)',
   parameters: [
-    { name: 'base', description: '基准语言目录 (如 locales/zh-CN)', default: 'locales/zh-CN' },
-    { name: 'target', description: '待对比目标语言目录 (如 locales/en-US)', default: 'locales/en-US' }
+    { name: 'base', description: 'Base locale directory (e.g. locales/zh-CN)', default: 'locales/zh-CN' },
+    { name: 'target', description: 'Target locale directory (e.g. locales/en-US)', default: 'locales/en-US' }
   ],
   codeBody: auditToolCode,
   examples: [
@@ -108,21 +108,21 @@ const synthesized = toolmaker.synthesizeTool({
   patternHash: check.patternHash
 });
 
-console.log(`✅ 脚本合成成功: ${synthesized.scriptPath}`);
+console.log(`✅ Tool successfully synthesized: ${synthesized.scriptPath}`);
 
-// 3. 验证通过 Runner 分发调用自造工具
-console.log('\n🚀 测试通过统一分发器调用: node .agents/scripts/runner.js audit-locales');
+// 3. Test running the synthesized tool via unified runner
+console.log('\n🚀 Testing execution via unified dispatcher: node .agents/scripts/runner.js audit-locales');
 const runnerPath = path.join(__dirname, '../.agents/scripts/runner.js');
 const runResult = spawnSync(process.execPath, [runnerPath, 'audit-locales'], {
   stdio: 'inherit',
   cwd: path.join(__dirname, '../')
 });
 
-console.log('\n📋 当前已沉淀自造工具清单:');
+console.log('\n📋 Registered Script Assets Catalog:');
 const tools = toolmaker.listTools();
 for (const t of tools) {
-  console.log(`• [${t.name}] - ${t.description} (脚本: ${t.scriptPath})`);
+  console.log(`• [${t.name}] - ${t.description} (Script: ${t.scriptPath})`);
 }
 
-console.log('\n🎉 自造工具演练成功！后续遇到多语言比对任务，Agent 可直接执行：');
+console.log('\n🎉 Demo complete! In future tasks, the Agent can directly run:');
 console.log('   node .agents/scripts/runner.js audit-locales\n');

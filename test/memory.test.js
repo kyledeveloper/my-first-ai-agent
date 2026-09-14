@@ -11,16 +11,16 @@ assert.strictEqual(initialStats.episodeCount, 0, 'Initial episodes should be 0')
 assert.strictEqual(initialStats.reflectionCount, 0, 'Initial reflections should be 0');
 console.log('✓ Test 1 Passed: Initial empty database verified.');
 
-// Test 2: Record an experience (simulating the better-sqlite3 native build failure)
+// Test 2: Record an experience (simulating better-sqlite3 native build failure)
 const res1 = mem.recordExperience({
-  intent: '安装 context-mode 全局或本地包',
+  intent: 'Install context-mode global or local package',
   context_summary: 'Node 24, macOS Darwin arm64, IDE sandbox',
   domain_tags: ['npm', 'native-build', 'permission'],
   status: 'failure',
-  trigger_pattern: 'npm install context-mode 或 better-sqlite3',
+  trigger_pattern: 'npm install context-mode or better-sqlite3',
   failure_mode: 'EPERM operation not permitted on node-gyp rebuild scandir build',
-  root_cause: '沙盒环境限制底层 C++ 原生模块编译执行',
-  corrective_heuristic: '避免在沙盒内用 npm 本地编译含原生扩展的包，优先使用 npx 免安装运行或由用户在系统终端安装'
+  root_cause: 'Sandbox environment restricts underlying C++ native module compilation',
+  corrective_heuristic: 'Avoid building native C++ addons inside sandbox; prefer npx or ask user to install in system terminal'
 });
 
 assert.ok(res1.id.startsWith('ref_'), 'Reflection ID should start with ref_');
@@ -33,12 +33,12 @@ console.log('✓ Test 2 Passed: Record experience successfully stored.');
 
 // Test 3: Deduplication / reinforcement on repeating same trigger
 const res2 = mem.recordExperience({
-  intent: '再次尝试 npm install context-mode',
+  intent: 'Retry npm install context-mode',
   domain_tags: ['npm'],
   status: 'failure',
-  trigger_pattern: 'npm install context-mode 或 better-sqlite3',
-  root_cause: '沙盒环境限制底层 C++ 原生模块编译执行',
-  corrective_heuristic: '避免在沙盒内用 npm 本地编译含原生扩展的包，优先使用 npx 免安装运行或由用户在系统终端安装'
+  trigger_pattern: 'npm install context-mode or better-sqlite3',
+  root_cause: 'Sandbox environment restricts underlying C++ native module compilation',
+  corrective_heuristic: 'Avoid building native C++ addons inside sandbox; prefer npx or ask user to install in system terminal'
 });
 
 assert.strictEqual(res2.reinforced, true, 'Duplicate pattern should reinforce instead of creating duplicate');
@@ -46,25 +46,24 @@ assert.strictEqual(mem.stats().reflectionCount, 1, 'Reflection count should rema
 console.log('✓ Test 3 Passed: Deduplication and reinforcement working properly.');
 
 // Test 4: Full-text search retrieval (FTS5)
-const queryResults = mem.query('npm install better-sqlite3 报错');
+const queryResults = mem.query('npm install better-sqlite3 error');
 assert.ok(queryResults.length > 0, 'Should find matching lesson by keywords');
 assert.strictEqual(queryResults[0].id, res1.id);
 console.log('✓ Test 4 Passed: FTS5 keyword matching retrieved relevant reflection.');
 
 // Test 5: Prompt formatting
 const formattedPrompt = mem.formatPrompt(queryResults);
-assert.ok(formattedPrompt.includes('历史反思经验提示'), 'Formatted prompt should include header');
-assert.ok(formattedPrompt.includes('避坑指南'), 'Formatted prompt should contain heuristic advice');
+assert.ok(formattedPrompt.includes('Historical Reflexion Guidance'), 'Formatted prompt should include English header');
+assert.ok(formattedPrompt.includes('Heuristic Advice'), 'Formatted prompt should contain heuristic advice');
 console.log('✓ Test 5 Passed: Prompt formatting produces high-density markdown.');
 
 // Test 6: Rule promotion candidate check
-// Simulate multiple hits
 for (let i = 0; i < 3; i++) {
   mem.query('better-sqlite3', { autoIncrementHit: true });
 }
 const candidates = mem.getCandidateRules(3);
 assert.ok(candidates.length > 0, 'Should have candidate rules when hit_count >= 3');
-assert.ok(candidates[0].ruleText.includes('历史规避次数'), 'Rule text should format metadata');
+assert.ok(candidates[0].ruleText.includes('Bypass count:'), 'Rule text should format English metadata');
 console.log('✓ Test 6 Passed: High-frequency memory consolidation / rule promotion candidates identified.');
 
 // Test 7: Multi-dimensional score breakdown & mathematical verification
@@ -85,17 +84,17 @@ console.log('✓ Test 7 Passed: Multi-dimensional score breakdown and mathematic
 const thirtyDaysAgo = Date.now() - (30 * 24 * 3600 * 1000);
 mem.db.insertEpisode({
   id: 'ep_old',
-  intent: '旧版编译测试',
+  intent: 'Legacy build test',
   status: 'recovered',
   created_at: thirtyDaysAgo
 });
 mem.db.insertReflection({
   id: 'ref_old',
   episode_id: 'ep_old',
-  intent: '旧版编译测试',
+  intent: 'Legacy build test',
   trigger_pattern: 'npm install legacy-module-old',
-  root_cause: '旧系统不支持',
-  corrective_heuristic: '避免安装',
+  root_cause: 'Unsupported on modern runtime',
+  corrective_heuristic: 'Avoid installation',
   created_at: thirtyDaysAgo,
   last_accessed_at: thirtyDaysAgo
 });
@@ -107,18 +106,18 @@ console.log(`✓ Test 8 Passed: Exponential recency decay verified (old recScore
 
 // Test 9: Importance score differentiation
 mem.recordExperience({
-  intent: '轻微提示测试',
-  trigger_pattern: 'vite build 出现轻微告警 (minor-warning-trigger)',
-  root_cause: '未使用的变量',
-  corrective_heuristic: '清除无用导入即可',
+  intent: 'Minor warning test',
+  trigger_pattern: 'vite build minor warning (minor-warning-trigger)',
+  root_cause: 'Unused variable',
+  corrective_heuristic: 'Clean unused imports',
   importance_score: 0.3
 });
 
 mem.recordExperience({
-  intent: '致命崩溃测试',
-  trigger_pattern: 'vite build 发生系统崩溃 (critical-crash-trigger)',
-  root_cause: '内存溢出 OOM',
-  corrective_heuristic: '增加 node 堆内存参数',
+  intent: 'Critical crash test',
+  trigger_pattern: 'vite build system crash (critical-crash-trigger)',
+  root_cause: 'Out of memory OOM',
+  corrective_heuristic: 'Increase node max heap size parameter',
   importance_score: 1.0
 });
 
@@ -131,12 +130,10 @@ console.log(`✓ Test 9 Passed: Importance weighting verified (critical: ${criti
 const recencyFocusedResults = mem.query('legacy-module-old', {
   weights: { alpha: 0.1, beta: 0.8, gamma: 0.1 }
 });
-// When recency is heavily weighted (0.8), the old score should be drastically reduced
 assert.ok(recencyFocusedResults[0].score < recentVsOldQuery[0].score, 'Higher beta should penalize old memories more');
 console.log('✓ Test 10 Passed: Dynamic weights adjustment verified.');
 
 // Test 11: Auto-refresh last_accessed_at on retrieval hit
-const beforeAccess = mem.db.db.prepare('SELECT last_accessed_at FROM reflections WHERE id = ?').get('ref_old').last_accessed_at;
 const nowAccessTime = Date.now();
 mem.query('legacy-module-old', { autoIncrementHit: true, now: nowAccessTime });
 const afterAccess = mem.db.db.prepare('SELECT last_accessed_at FROM reflections WHERE id = ?').get('ref_old').last_accessed_at;
