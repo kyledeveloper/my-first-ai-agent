@@ -1,13 +1,11 @@
 /**
  * Semantic Evaluator for Code Symbol Graph & Blast-Radius
- * 
- * Provides Stage 2 semantic contract inference:
- * - Deterministic AST structural compatibility analysis (< 5ms local fast-path)
- * - Monotonic security ratchet (AST breaking change veto power over LLM hallucination)
+ *
+ * Stage 2 is local AST contract inference only:
+ * - Deterministic structural compatibility analysis
  * - Hermetic call-site AST slicing (<= 20 lines)
  * - Sync-to-async unhandled promise trap detection
  * - Deep recursive object destructuring parameter inspection
- * - Pluggable LLM evaluator adapter with schema sanitization
  */
 
 const fs = require('fs');
@@ -522,31 +520,14 @@ function evaluateStructuralContract(oldSig, newSig, callSites = []) {
 }
 
 /**
- * Sanitize and extract JSON object from LLM response string.
- */
-function sanitizeLlmJson(raw) {
-  if (!raw || typeof raw !== 'string') return null;
-  const trimmed = raw.trim();
-  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-  try {
-    return JSON.parse(jsonMatch[0]);
-  } catch (e) {
-    return null;
-  }
-}
-
-/**
  * Execute Stage 2 Semantic Blast Radius Evaluation.
- * Orchestrates local structural contract evaluation and optional LLM inference with Monotonic Ratchet.
+ * Local AST structural contract only — no model, no network.
  */
 function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFiles = [], graph = null, options = {}) {
   const evaluations = [];
   let overallVerdict = 'COMPATIBLE';
   let hasBreaking = false;
-  const isOffline = !options.llmEvaluator;
 
-  const targetFileNode = graph ? graph.getFileNode(targetFile) : null;
   const targetSource = (options.targetSource || (fs.existsSync(targetFile) ? fs.readFileSync(targetFile, 'utf8') : ''));
 
   for (const callerFile of directFiles) {
@@ -559,11 +540,9 @@ function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFile
     }
 
     for (const symbol of changedSymbols) {
-      // Extract Old and New Signatures
       let oldSig = options.oldSignatures ? options.oldSignatures[symbol] : null;
       let newSig = options.newSignatures ? options.newSignatures[symbol] : null;
 
-      // Extract from Hunk text if provided
       if (!oldSig && options.diff) {
         oldSig = extractSignatureFromHunk(options.diff, symbol, 'old');
       }
@@ -574,7 +553,6 @@ function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFile
         newSig = extractSignatureFromHunk(targetSource, symbol);
       }
 
-      // Red-Team [CRITICAL-01]: When no diff modifies the symbol, baseline remains unchanged (oldSig = newSig)
       if (!oldSig) {
         if (newSig) {
           oldSig = newSig;
@@ -587,65 +565,7 @@ function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFile
       }
 
       const callSites = extractCallSitesInFile(callerSource, callerAST, symbol, targetFile);
-
-      // 1. Run Deterministic AST Structural Contract Evaluation
-      const structuralResult = evaluateStructuralContract(oldSig, newSig, callSites);
-
-      let finalResult = structuralResult;
-
-      // 2. Run Pluggable LLM Inference if configured and AST has not already vetoed as BREAKING
-      if (options.llmEvaluator) {
-        try {
-          const payload = {
-            targetFile: path.basename(targetFile),
-            symbol,
-            oldSignature: oldSig,
-            newSignature: newSig,
-            callSites: callSites.map(cs => ({ line: cs.line, snippet: cs.snippet, argCount: cs.argCount })),
-            structuralVerdict: structuralResult.verdict
-          };
-
-          const llmRaw = options.llmEvaluator(payload);
-          // Red-Team [WARNING-04]: Intercept async Promise returned by llmEvaluator
-          if (llmRaw && typeof llmRaw.then === 'function') {
-            throw new TypeError(
-              'options.llmEvaluator returned a Promise. evaluateSemanticBlastRadius is synchronous; please provide a synchronous evaluator.'
-            );
-          }
-
-          const llmParsed = typeof llmRaw === 'string' ? sanitizeLlmJson(llmRaw) : llmRaw;
-
-          if (llmParsed && llmParsed.verdict) {
-            const normalizedVerdict = String(llmParsed.verdict).toUpperCase();
-            if (normalizedVerdict === 'BREAKING' || normalizedVerdict === 'COMPATIBLE') {
-              // Monotonic Security Ratchet: AST BREAKING can NEVER be downgraded by LLM!
-              if (structuralResult.isBreaking) {
-                finalResult = {
-                  isBreaking: true,
-                  verdict: 'BREAKING',
-                  reason: `${structuralResult.reason} [AST Veto: LLM override prohibited]`,
-                  suggestedRemediation: llmParsed.suggestedRemediation || structuralResult.suggestedRemediation
-                };
-              } else {
-                // AST is COMPATIBLE, LLM is permitted to upgrade to BREAKING or enrich explanation
-                finalResult = {
-                  isBreaking: normalizedVerdict === 'BREAKING',
-                  verdict: normalizedVerdict,
-                  reason: llmParsed.reason || structuralResult.reason,
-                  suggestedRemediation: llmParsed.suggestedRemediation
-                };
-              }
-            }
-          }
-        } catch (e) {
-          // Rethrow TypeError for async Promise traps so callers notice invalid usage
-          if (e instanceof TypeError && e.message.includes('Promise')) {
-            throw e;
-          }
-          // LLM evaluation failure cleanly degrades to structuralResult
-          finalResult = structuralResult;
-        }
-      }
+      const finalResult = evaluateStructuralContract(oldSig, newSig, callSites);
 
       if (finalResult.isBreaking) {
         hasBreaking = true;
@@ -667,8 +587,8 @@ function evaluateSemanticBlastRadius(targetFile, changedSymbols = [], directFile
 
   return {
     isSemanticAware: true,
-    isDegraded: isOffline,
-    mode: isOffline ? 'offline-ast-contract' : 'llm-hybrid-contract',
+    isDegraded: false,
+    mode: 'ast-contract',
     overallVerdict,
     hasBreaking,
     evaluations

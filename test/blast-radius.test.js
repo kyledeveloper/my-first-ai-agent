@@ -697,8 +697,8 @@ module.exports = { checkout };
   fs.rmSync(semBreakDir, { recursive: true, force: true });
 }
 
-// Test 29: Red-Team [BLOCKER-1] Monotonic Security Ratchet: AST Breaking Verdict Veto Power
-console.log('Testing Red-Team [BLOCKER-1]: AST Veto Power over LLM Hallucination...');
+// Test 29: AST-only semantic path still reports BREAKING (no LLM hook)
+console.log('Testing AST-only semantic path: mandatory param stays BREAKING...');
 const semVetoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-veto-'));
 try {
   const serviceFile = path.join(semVetoDir, 'authService.js');
@@ -728,29 +728,21 @@ login('admin');
 +function login(username, password) {
 `;
 
-  // Adversarial LLM claiming everything is COMPATIBLE
-  const hallucinatingLlm = (payload) => {
-    return {
-      verdict: 'COMPATIBLE',
-      reason: 'Hallucination: Missing password argument is completely fine!'
-    };
-  };
-
   const report = calculateBlastRadius(serviceFile, {
     graph: semGraph,
     diff: diffAddMandatory,
     diffAware: true,
     semantic: true,
-    rootDir: semVetoDir,
-    llmEvaluator: hallucinatingLlm
+    rootDir: semVetoDir
   });
 
-  assert.strictEqual(report.semanticAnalysis.hasBreaking, true, 'AST breaking verdict must NOT be overridden by LLM');
-  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'BREAKING', 'Verdict must stay BREAKING');
+  assert.strictEqual(report.semanticAnalysis.hasBreaking, true);
+  assert.strictEqual(report.semanticAnalysis.overallVerdict, 'BREAKING');
+  assert.strictEqual(report.semanticAnalysis.isDegraded, false, 'AST contract is the primary path, not a degraded fallback');
+  assert.strictEqual(report.semanticAnalysis.mode, 'ast-contract');
   const evalItem = report.semanticAnalysis.evaluations[0];
   assert.strictEqual(evalItem.verdict, 'BREAKING');
-  assert.ok(evalItem.reason.includes('[AST Veto: LLM override prohibited]'), 'Reason must record AST veto');
-  console.log('✓ Test 29 Passed: Monotonic Security Ratchet forbids LLM from downgrading AST breaking changes.');
+  console.log('✓ Test 29 Passed: AST-only semantic path reports BREAKING without an LLM adapter.');
 } finally {
   fs.rmSync(semVetoDir, { recursive: true, force: true });
 }
@@ -935,8 +927,8 @@ try {
   const duration = Date.now() - startTime;
 
   assert.strictEqual(offlineResult.isSemanticAware, true);
-  assert.strictEqual(offlineResult.isDegraded, true, 'Offline mode must set isDegraded: true');
-  assert.strictEqual(offlineResult.mode, 'offline-ast-contract', 'Mode must be offline-ast-contract');
+  assert.strictEqual(offlineResult.isDegraded, false, 'AST contract is the primary path, not degraded');
+  assert.strictEqual(offlineResult.mode, 'ast-contract');
   assert.strictEqual(offlineResult.hasBreaking, false);
   assert.strictEqual(offlineResult.overallVerdict, 'COMPATIBLE');
   assert.ok(duration < 100, `Evaluation must run locally in < 100ms, took ${duration}ms`);
@@ -1124,14 +1116,7 @@ const deepDestructRes = evaluateStructuralContract(deepOld, deepNew, [{ line: 1,
 assert.strictEqual(deepDestructRes.isBreaking, true);
 assert.ok(deepDestructRes.reason.includes('db.port'));
 
-// 4. WARNING-04: Async LLM evaluator returns Promise -> TypeError thrown
-assert.throws(() => {
-  evaluateSemanticBlastRadius('/fake.js', ['test'], ['/caller.js'], null, {
-    llmEvaluator: () => Promise.resolve({ verdict: 'COMPATIBLE' })
-  });
-}, /Promise/);
-
-// 5. WARNING-06: Direct return inside async function propagates Promise safely
+// 4. WARNING-06: Direct return inside async function propagates Promise safely
 const asyncReturnCode = `
 async function proxyCall() {
   return targetFunction();
@@ -1142,6 +1127,6 @@ const asyncReturnCalls = extractCallSitesInFile(asyncReturnCode, asyncReturnAst,
 assert.strictEqual(asyncReturnCalls.length, 1);
 assert.strictEqual(asyncReturnCalls[0].isAwaited, true, 'Direct return in async function is treated as safely awaited/propagated');
 
-console.log('✓ Test 38 Passed: All warning edge cases (strings with commas, balanced parens, deep destructuring, async promise guard, async return propagation) verified.');
+console.log('✓ Test 38 Passed: All warning edge cases (strings with commas, balanced parens, deep destructuring, async return propagation) verified.');
 
 console.log('\nAll 38 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
