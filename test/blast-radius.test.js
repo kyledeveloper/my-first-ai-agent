@@ -270,10 +270,12 @@ console.log('✓ Test 14 Passed: parseDiffHunks accurately extracts modified lin
 console.log('Testing Diff-Aware blast radius on private internal modification...');
 const os = require('os');
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blast-diff-'));
-const modAPath = path.join(tmpDir, 'moduleA.js');
-const modBPath = path.join(tmpDir, 'moduleB.js');
 
-const modACode = `
+try {
+  const modAPath = path.join(tmpDir, 'moduleA.js');
+  const modBPath = path.join(tmpDir, 'moduleB.js');
+
+  const modACode = `
 function _internalHelper(val) {
   return val * 10;
 }
@@ -287,7 +289,7 @@ module.exports = {
 };
 `;
 
-const modBCode = `
+  const modBCode = `
 const { publicExported } = require('./moduleA');
 function consumer() {
   return publicExported();
@@ -295,18 +297,18 @@ function consumer() {
 module.exports = { consumer };
 `;
 
-fs.writeFileSync(modAPath, modACode, 'utf8');
-fs.writeFileSync(modBPath, modBCode, 'utf8');
+  fs.writeFileSync(modAPath, modACode, 'utf8');
+  fs.writeFileSync(modBPath, modBCode, 'utf8');
 
-const isolatedGraph = new SymbolGraph({ rootDir: tmpDir });
-isolatedGraph.build();
+  const isolatedGraph = new SymbolGraph({ rootDir: tmpDir });
+  isolatedGraph.build();
 
-// Verify downstream relationship initially
-const downstreamBefore = isolatedGraph.getDownstreamFiles(modAPath);
-assert.ok(downstreamBefore.includes(modBPath), 'moduleB should depend on moduleA');
+  // Verify downstream relationship initially
+  const downstreamBefore = isolatedGraph.getDownstreamFiles(modAPath);
+  assert.ok(downstreamBefore.includes(modBPath), 'moduleB should depend on moduleA');
 
-// Scenario 1: Diff modifies ONLY _internalHelper (line 3: return val * 10;)
-const privateDiff = `
+  // Scenario 1: Diff modifies ONLY _internalHelper (line 3: return val * 10;)
+  const privateDiff = `
 --- a/moduleA.js
 +++ b/moduleA.js
 @@ -3 +3 @@
@@ -314,24 +316,24 @@ const privateDiff = `
 +  return val * 20;
 `;
 
-const blastPrivate = calculateBlastRadius(modAPath, {
-  graph: isolatedGraph,
-  diff: privateDiff,
-  diffAware: true,
-  rootDir: tmpDir
-});
+  const blastPrivate = calculateBlastRadius(modAPath, {
+    graph: isolatedGraph,
+    diff: privateDiff,
+    diffAware: true,
+    rootDir: tmpDir
+  });
 
-assert.strictEqual(blastPrivate.isDiffAware, true, 'Report should be marked as diff-aware');
-assert.strictEqual(blastPrivate.scope, 'LOCAL_PRIVATE', 'Scope should converge to LOCAL_PRIVATE');
-assert.strictEqual(blastPrivate.riskLevel, 'LOW', 'Risk level should be LOW for private changes');
-assert.deepStrictEqual(blastPrivate.directFiles, [], 'No downstream files should be in direct impact for private changes');
-assert.deepStrictEqual(blastPrivate.indirectFiles, [], 'No indirect files should be alerted for private changes');
-assert.ok(blastPrivate.notes && blastPrivate.notes.includes('LOCAL_PRIVATE'), 'Notes should explain local private containment');
-console.log('✓ Test 15 Passed: Internal private modification converges to LOCAL_PRIVATE with LOW risk.');
+  assert.strictEqual(blastPrivate.isDiffAware, true, 'Report should be marked as diff-aware');
+  assert.strictEqual(blastPrivate.scope, 'LOCAL_PRIVATE', 'Scope should converge to LOCAL_PRIVATE');
+  assert.strictEqual(blastPrivate.riskLevel, 'LOW', 'Risk level should be LOW for private changes');
+  assert.deepStrictEqual(blastPrivate.directFiles, [], 'No downstream files should be in direct impact for private changes');
+  assert.deepStrictEqual(blastPrivate.indirectFiles, [], 'No indirect files should be alerted for private changes');
+  assert.ok(blastPrivate.notes && blastPrivate.notes.includes('LOCAL_PRIVATE'), 'Notes should explain local private containment');
+  console.log('✓ Test 15 Passed: Internal private modification converges to LOCAL_PRIVATE with LOW risk.');
 
-// Test 16: Modifying public exported function triggers full blast radius
-console.log('Testing Diff-Aware blast radius on public exported function modification...');
-const publicDiff = `
+  // Test 16: Modifying public exported function triggers full blast radius
+  console.log('Testing Diff-Aware blast radius on public exported function modification...');
+  const publicDiff = `
 --- a/moduleA.js
 +++ b/moduleA.js
 @@ -7 +7 @@
@@ -339,24 +341,37 @@ const publicDiff = `
 +  return "world";
 `;
 
-const blastPublic = calculateBlastRadius(modAPath, {
-  graph: isolatedGraph,
-  diff: publicDiff,
-  diffAware: true,
-  rootDir: tmpDir
-});
+  const blastPublic = calculateBlastRadius(modAPath, {
+    graph: isolatedGraph,
+    diff: publicDiff,
+    diffAware: true,
+    rootDir: tmpDir
+  });
 
-assert.strictEqual(blastPublic.isDiffAware, true);
-assert.strictEqual(blastPublic.scope, 'PUBLIC_CONTRACT', 'Scope should be PUBLIC_CONTRACT when touching exported function');
-assert.ok(blastPublic.directFiles.includes(modBPath), 'moduleB must be alerted when public function is modified');
-console.log('✓ Test 16 Passed: Modifying exported function triggers full downstream blast radius.');
+  assert.strictEqual(blastPublic.isDiffAware, true);
+  assert.strictEqual(blastPublic.scope, 'PUBLIC_CONTRACT', 'Scope should be PUBLIC_CONTRACT when touching exported function');
+  assert.ok(blastPublic.directFiles.includes(modBPath), 'moduleB must be alerted when public function is modified');
+  console.log('✓ Test 16 Passed: Modifying exported function triggers full downstream blast radius.');
+} finally {
+  // Hermetic sandbox guaranteed cleanup
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+}
 
-// Test 17: CLI execution with --diff flag
+// Test 17: CLI execution with hermetic mock diff argument
 console.log('Testing CLI execution with --diff flag...');
+const mockCliDiff = [
+  'diff --git a/src/memory/db.js b/src/memory/db.js',
+  '--- a/src/memory/db.js',
+  '+++ b/src/memory/db.js',
+  '@@ -20,1 +20,1 @@',
+  '- const old = 1;',
+  '+ const old = 2;'
+].join('\n');
+
 const cliDiffRun = spawnSync(process.execPath, [
   cliPath,
   '--target', 'src/memory/db.js',
-  '--diff',
+  '--diff', mockCliDiff,
   '--json'
 ], { encoding: 'utf8' });
 
@@ -365,9 +380,6 @@ const parsedCliDiff = JSON.parse(cliDiffRun.stdout.trim());
 assert.strictEqual(parsedCliDiff.target, 'src/memory/db.js');
 assert.strictEqual(parsedCliDiff.isDiffAware, true, 'isDiffAware should be true in CLI report');
 console.log('✓ Test 17 Passed: CLI with --diff flag produces structured diff-aware report.');
-
-// Cleanup hermetic tmp directory
-fs.rmSync(tmpDir, { recursive: true, force: true });
 
 // Test 18: Deep destructuring and aliases in CJS require and ESM import/export
 console.log('Testing Acorn Parser deep destructuring and aliases...');
@@ -444,6 +456,128 @@ module.exports = { startServer };
 const parsedTs = parseSource(tsCode, '/project/src/server.ts');
 assert.ok(parsedTs, 'Fallback parser should not throw on TS syntax');
 assert.ok(parsedTs.exports.includes('startServer'), 'Fallback parser should extract exported startServer');
-console.log('✓ Test 21 Passed: Smooth fallback on TS syntax succeeds without crashing.');
+assert.strictEqual(parsedTs.isDegraded, true, 'TS fallback should have isDegraded: true');
+assert.strictEqual(parsedTs.parserType, 'regex-fallback', 'TS fallback should have parserType: regex-fallback');
+console.log('✓ Test 21 Passed: Smooth fallback on TS syntax succeeds with degradation flag.');
 
-console.log('\nAll 21 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+// Test 22: Red-Team [CRITICAL-01] module.exports.fn = ... export extraction
+console.log('Testing Red-Team [CRITICAL-01]: module.exports.fn = ... export pattern...');
+const modExportPropCode = `
+function doTask() { return "task-done"; }
+function anotherTask() { return "another"; }
+module.exports.doTask = doTask;
+exports.anotherTask = anotherTask;
+`;
+const parsedModExports = parseSource(modExportPropCode, '/project/src/worker.js');
+assert.ok(parsedModExports.exports.includes('doTask'), 'module.exports.doTask MUST be extracted as an export');
+assert.ok(parsedModExports.exports.includes('anotherTask'), 'exports.anotherTask MUST be extracted as an export');
+console.log('✓ Test 22 Passed: module.exports.doTask correctly recognized as exported contract.');
+
+// Test 23: Red-Team [CRITICAL-02] Private function called by exported function triggers PUBLIC_CONTRACT
+console.log('Testing Red-Team [CRITICAL-02]: Internal call from export to private function...');
+const authTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blast-auth-'));
+try {
+  const authFile = path.join(authTmpDir, 'authService.js');
+  const clientFile = path.join(authTmpDir, 'client.js');
+
+  const authCode = `
+function _hashPassword(p) {
+  return p + "_salt";
+}
+
+function login(username, password) {
+  const hash = _hashPassword(password);
+  return username + hash;
+}
+
+module.exports = { login };
+`;
+
+  const clientCode = `
+const { login } = require('./authService');
+function authenticate() {
+  return login("alice", "secret");
+}
+module.exports = { authenticate };
+`;
+
+  fs.writeFileSync(authFile, authCode, 'utf8');
+  fs.writeFileSync(clientFile, clientCode, 'utf8');
+
+  const authGraph = new SymbolGraph({ rootDir: authTmpDir });
+  authGraph.build();
+
+  // Diff modifies ONLY _hashPassword (line 3: return p + "_salt";)
+  const privateModifiedDiff = `
+--- a/authService.js
++++ b/authService.js
+@@ -3 +3 @@
+-  return p + "_salt";
++  return p + "_v2_salt";
+`;
+
+  const blastInternalDep = calculateBlastRadius(authFile, {
+    graph: authGraph,
+    diff: privateModifiedDiff,
+    diffAware: true,
+    rootDir: authTmpDir
+  });
+
+  // Because login() calls _hashPassword(), modifying _hashPassword() MUST propagate to login()
+  assert.strictEqual(blastInternalDep.scope, 'PUBLIC_CONTRACT', 'Modifying private function called by export MUST propagate to PUBLIC_CONTRACT');
+  assert.ok(blastInternalDep.directFiles.includes(clientFile), 'client.js must be in directFiles when private dependency of login() changes');
+  console.log('✓ Test 23 Passed: Private function called by export propagates downstream as PUBLIC_CONTRACT.');
+} finally {
+  fs.rmSync(authTmpDir, { recursive: true, force: true });
+}
+
+// Test 24: Red-Team [CRITICAL-03] parseDiffHunks multi-file basename isolation
+console.log('Testing Red-Team [CRITICAL-03]: parseDiffHunks multi-file path isolation...');
+const multiFileDiff = `
+diff --git a/test/db.test.js b/test/db.test.js
+--- a/test/db.test.js
++++ b/test/db.test.js
+@@ -50,5 +50,5 @@
+- assert(true);
++ assert(false);
+diff --git a/src/db.js b/src/db.js
+--- a/src/db.js
++++ b/src/db.js
+@@ -10,2 +10,2 @@
+- function query() {}
++ function query(x) {}
+`;
+
+const srcDbLines = parseDiffHunks(multiFileDiff, 'src/db.js');
+assert.deepStrictEqual(srcDbLines, [10, 11], 'src/db.js lines should only match src/db.js hunks, not test/db.test.js');
+
+const testDbLines = parseDiffHunks(multiFileDiff, 'test/db.test.js');
+assert.deepStrictEqual(testDbLines, [50, 51, 52, 53, 54], 'test/db.test.js lines should only match test/db.test.js');
+console.log('✓ Test 24 Passed: parseDiffHunks isolates multiple files without basename contamination.');
+
+// Test 25: Red-Team [WARNING-02, WARNING-03] Object.assign exports and ESM forwarding
+console.log('Testing Red-Team [WARNING-02, WARNING-03]: Object.assign exports and export * forwarding...');
+const assignCode = `
+Object.assign(module.exports, {
+  alpha() { return 1; },
+  beta() { return 2; }
+});
+export * from './barrelTarget';
+export { helper } from './helperTarget';
+`;
+const parsedAssign = parseSource(assignCode, '/project/src/barrel.js');
+assert.ok(parsedAssign.exports.includes('alpha'), 'Object.assign(module.exports) export alpha captured');
+assert.ok(parsedAssign.exports.includes('beta'), 'Object.assign(module.exports) export beta captured');
+assert.ok(parsedAssign.imports.some(imp => imp.source === './barrelTarget'), 'export * from source captured in imports');
+assert.ok(parsedAssign.imports.some(imp => imp.source === './helperTarget'), 'export { foo } from source captured in imports');
+console.log('✓ Test 25 Passed: Object.assign and export forwarding properly indexed.');
+
+// Test 26: Red-Team [WARNING-01] Acorn AST parser flag isDegraded === false
+console.log('Testing Red-Team [WARNING-01]: High-precision parser sets isDegraded: false...');
+const validJsCode = `function test() { return 42; } module.exports = { test };`;
+const parsedValidJs = parseSource(validJsCode, '/project/src/valid.js');
+assert.strictEqual(parsedValidJs.isDegraded, false, 'Standard JS should not be degraded');
+assert.strictEqual(parsedValidJs.parserType, 'ast-acorn', 'Standard JS should use ast-acorn parserType');
+console.log('✓ Test 26 Passed: Standard JS correctly reports ast-acorn parserType with zero degradation.');
+
+console.log('\nAll 26 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');

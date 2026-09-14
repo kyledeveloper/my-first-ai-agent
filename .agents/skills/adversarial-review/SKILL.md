@@ -28,31 +28,36 @@ Before any core commit, the diff must be evaluated against four strict criteria:
 
 ---
 
-## 2. Automated Static Audit Tool
+## 2. Mandatory Two-Tier Defense Gate
 
-Run the zero-token local adversary auditor script:
+### Tier 1: Automated Static Audit Script
+Run the zero-token local adversary auditor script on staged diffs for immediate baseline defense:
 
 ```bash
 node .agents/scripts/runner.js adversary-check
-# or scan a specific diff
+# or scan staged diff
 node .agents/scripts/adversary-check.js --staged
 ```
 
 ---
 
-## 3. Subagent Adversarial Protocol
-
-When authoring complex or security-sensitive modules (`src/memory/`, `src/graph/`, `.agents/scripts/`), the Agent must invoke a dedicated review subagent:
+### Tier 2: Dedicated Subagent Red-Team Audit (Mandatory for Core Modules)
+When authoring or refactoring sensitive architectural components (`src/memory/`, `src/graph/`, `src/agent/`, `.agents/scripts/`), **Tier 1 alone is NOT sufficient**. The Agent MUST invoke an independent read-only auditor subagent:
 
 ```javascript
 invoke_subagent({
   Role: "Adversarial Code Auditor",
   TypeName: "research",
-  Prompt: `Analyze the pending git diff under the four cold-eye lenses:
-1. Are multi-step DB writes wrapped in atomic transactions?
-2. Are tests hermetically isolated with os.tmpdir()?
-3. Do regex patterns guard against false positives?
-4. Are all generated artifacts and databases kept out of git?
-Report issues as [CRITICAL], [WARNING], or [CLEAN PASS].`
+  Prompt: `You are the cold-eyed Adversarial Code Auditor (Red Team).
+Inspect the pending changes and git diff across the four cold-eye lenses and edge-case resilience:
+1. ACID Transaction Completeness: Are all multi-step mutations strictly transactional?
+2. Hermetic Test Isolation: Are tests isolated via os.tmpdir() with 0 external pollution?
+3. Regex & AST Boundary Defenses: Are there false positives, silent degradations, or unhandled syntax?
+4. VCS & Artifact Hygiene: Are temporary files, databases, or sensitive configs properly ignored?
+5. Edge Cases & Attack Scenarios: What runtime inputs, dynamic properties, or circular paths could break this code?
+
+Deliver a formal 《红蓝对抗审计裁决书》 (Adversarial Verdict) categorized by [CRITICAL], [WARNING], and [SUGGESTION].`
 });
 ```
+
+The authoring Agent (Blue Team) must publicly address every finding in the conversation, implement necessary defenses, and achieve formal resolution before any local git commit is allowed.

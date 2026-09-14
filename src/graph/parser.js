@@ -12,7 +12,11 @@ const walk = require('acorn-walk');
 const BUILTIN_GLOBALS = new Set([
   'JSON', 'Math', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Date',
   'RegExp', 'Error', 'Promise', 'Map', 'Set', 'WeakMap', 'WeakSet', 'Symbol',
+  'BigInt', 'Reflect', 'Proxy', 'Intl', 'Atomics',
   'console', 'process', 'Buffer', 'global', 'globalThis', 'window', 'document',
+  'performance', 'assert',
+  'Uint8Array', 'Int8Array', 'Uint16Array', 'Int16Array', 'Uint32Array', 'Int32Array',
+  'Float32Array', 'Float64Array', 'BigInt64Array', 'BigUint64Array', 'ArrayBuffer', 'SharedArrayBuffer', 'DataView',
   'fs', 'path', 'os', 'child_process', 'crypto', 'http', 'https', 'url', 'util'
 ]);
 
@@ -501,6 +505,9 @@ function extractModuleExports(right, exportsList) {
 /**
  * Extract exports from assignment expression.
  */
+/**
+ * Extract exports from assignment expression.
+ */
 function extractAssignmentExport(node, exportsList) {
   const left = node.left;
   if (!left || left.type !== 'MemberExpression') return;
@@ -512,6 +519,46 @@ function extractAssignmentExport(node, exportsList) {
   if (left.object && left.object.name === 'exports') {
     const name = left.property ? (left.property.name || left.property.value) : null;
     if (name) exportsList.add(String(name));
+    return;
+  }
+  if (
+    left.object &&
+    left.object.type === 'MemberExpression' &&
+    left.object.object &&
+    left.object.object.name === 'module' &&
+    left.object.property &&
+    left.object.property.name === 'exports'
+  ) {
+    const name = left.property ? (left.property.name || left.property.value) : null;
+    if (name) exportsList.add(String(name));
+  }
+}
+
+/**
+ * Extract exports from Object.assign(module.exports, ...) or Object.assign(exports, ...).
+ */
+function extractObjectAssignExports(node, exportsList) {
+  if (!node || node.type !== 'CallExpression') return;
+  const callee = node.callee;
+  if (!callee || callee.type !== 'MemberExpression') return;
+  if (!callee.object || callee.object.name !== 'Object') return;
+  if (!callee.property || callee.property.name !== 'assign') return;
+
+  const firstArg = node.arguments[0];
+  if (!firstArg) return;
+  const isModExp =
+    (firstArg.type === 'MemberExpression' && firstArg.object && firstArg.object.name === 'module' && firstArg.property && firstArg.property.name === 'exports') ||
+    (firstArg.type === 'Identifier' && firstArg.name === 'exports');
+  if (!isModExp) return;
+
+  for (let i = 1; i < node.arguments.length; i++) {
+    const arg = node.arguments[i];
+    if (arg && arg.type === 'ObjectExpression' && arg.properties) {
+      for (const prop of arg.properties) {
+        const name = prop.key ? (prop.key.name || prop.key.value) : null;
+        if (name) exportsList.add(String(name));
+      }
+    }
   }
 }
 
@@ -534,21 +581,50 @@ function extractAcornExports(node, exportsList) {
 }
 
 /**
+ * Extract call sites within a function body node.
+ */
+function extractFunctionCalls(funcBody) {
+  const calls = new Set();
+  if (!funcBody) return [];
+  try {
+    walk.simple(funcBody, {
+      CallExpression(callNode) {
+        if (callNode.callee && callNode.callee.type === 'Identifier') {
+          calls.add(callNode.callee.name);
+        } else if (callNode.callee && callNode.callee.type === 'MemberExpression') {
+          const prop = callNode.callee.property ? (callNode.callee.property.name || callNode.callee.property.value) : null;
+          if (prop) calls.add(String(prop));
+        }
+      }
+    });
+  } catch (e) {
+    // Ignore AST walk errors on partial bodies
+  }
+  return Array.from(calls);
+}
+
+/**
  * Extract functions and classes from Acorn AST node.
  */
 function extractAcornDeclarations(node, functions, classes, callSites) {
   if (node.type === 'FunctionDeclaration' && node.id) {
     const params = node.params.map(p => (p.type === 'Identifier' ? p.name : '')).filter(Boolean);
-    functions.push({ name: node.id.name, params, startLine: node.loc.start.line, endLine: node.loc.end.line });
-  } else if (node.type === 'ClassDeclaration' && node.id) {
+    const calls = extractFunctionCalls(node.body);
+    functions.push({ name: node.id.name, params, startLine: node.loc.start.line, endLine: node.loc.end.line, calls });
+    return;
+  }
+  if (node.type === 'ClassDeclaration' && node.id) {
     const ext = node.superClass && node.superClass.type === 'Identifier' ? node.superClass.name : null;
     classes.push({ name: node.id.name, extends: ext, startLine: node.loc.start.line, endLine: node.loc.end.line });
     if (ext) callSites.add(ext);
-  } else if (node.type === 'VariableDeclaration') {
+    return;
+  }
+  if (node.type === 'VariableDeclaration') {
     for (const decl of node.declarations) {
       if (decl.id.type === 'Identifier' && decl.init && (decl.init.type === 'ArrowFunctionExpression' || decl.init.type === 'FunctionExpression')) {
         const params = decl.init.params.map(p => (p.type === 'Identifier' ? p.name : '')).filter(Boolean);
-        functions.push({ name: decl.id.name, params, startLine: node.loc.start.line, endLine: node.loc.end.line });
+        const calls = extractFunctionCalls(decl.init.body);
+        functions.push({ name: decl.id.name, params, startLine: node.loc.start.line, endLine: node.loc.end.line, calls });
       }
     }
   }
@@ -605,10 +681,27 @@ function parseWithAcorn(code, filePath) {
     },
     FunctionDeclaration(node) { extractAcornDeclarations(node, functions, classes, callSites); },
     ClassDeclaration(node) { extractAcornDeclarations(node, functions, classes, callSites); },
-    ExportNamedDeclaration(node) { extractAcornExports(node, exportsList); },
+    ExportNamedDeclaration(node) {
+      extractAcornExports(node, exportsList);
+      if (node.source && typeof node.source.value === 'string') {
+        const source = node.source.value;
+        const resolvedPath = resolveModulePath(source, filePath);
+        imports.push({ type: 'esm', source, resolvedPath, defaultName: null, named: null });
+      }
+    },
+    ExportAllDeclaration(node) {
+      if (node.source && typeof node.source.value === 'string') {
+        const source = node.source.value;
+        const resolvedPath = resolveModulePath(source, filePath);
+        imports.push({ type: 'esm', source, resolvedPath, defaultName: null, named: ['*'] });
+      }
+    },
     ExportDefaultDeclaration(node) { extractAcornExports(node, exportsList); },
     AssignmentExpression(node) { extractAcornExports(node, exportsList); },
-    CallExpression(node) { extractAcornCallSites(node, callSites); }
+    CallExpression(node) {
+      extractAcornCallSites(node, callSites);
+      extractObjectAssignExports(node, exportsList);
+    }
   });
 
   return {
@@ -633,14 +726,22 @@ function parseSource(code, filePath) {
       exports: [],
       functions: [],
       classes: [],
-      callSites: []
+      callSites: [],
+      isDegraded: false,
+      parserType: 'empty'
     };
   }
 
   try {
-    return parseWithAcorn(code, filePath);
+    const res = parseWithAcorn(code, filePath);
+    res.isDegraded = false;
+    res.parserType = 'ast-acorn';
+    return res;
   } catch (err) {
-    return parseWithRegexFallback(code, filePath);
+    const res = parseWithRegexFallback(code, filePath);
+    res.isDegraded = true;
+    res.parserType = 'regex-fallback';
+    return res;
   }
 }
 

@@ -37,9 +37,8 @@
 
 ## Adversarial Dual-Agent Review Policy (红蓝对抗独立审查准则)
 - **No Self-Approval for Core Changes**: When authoring or refactoring sensitive architectural components (`src/memory/`, `src/graph/`, `src/agent/`, `.agents/scripts/`), the authoring Agent (Blue Team) is strictly prohibited from self-approving commits without adversarial inspection.
-- **Cold-Eye Auditor Lens**: The Agent must run `node .agents/scripts/runner.js adversary-check --staged` or invoke an isolated auditor subagent to inspect the pending diff across the Four Cold-Eye Lenses:
-  1. **ACID Transactions**: Multi-step DB writes must be encapsulated in atomic transactions with zero risk of partial or orphaned records.
-  2. **Hermetic Test Isolation**: Tests must never mutate real `.git/` or workspace configs; temporary directories must be isolated via `os.tmpdir()`.
-  3. **Regex Boundary Defenses**: Secret matching and tokenization patterns must use strict word/token boundaries (`\b` or negative lookarounds) to prevent false-positive regressions.
-  4. **VCS & Artifact Hygiene**: Runtime database files, ephemeral HTML/SVG renders, and credentials must be kept out of version control via `.gitignore`.
-- **Fail-Closed Remediation Loop**: Any `[CRITICAL]` violation flagged by the auditor must be resolved and verified before a local `git commit` is permitted.
+- **Mandatory Two-Tier Defense Gate**:
+  1. **Tier 1 (Automated Static Baseline)**: Must run `node .agents/scripts/runner.js adversary-check --staged` on all staged diffs to catch baseline regressions across the Four Cold-Eye Lenses (ACID transactions, hermetic test isolation, regex boundaries, VCS hygiene).
+  2. **Tier 2 (Mandatory Independent Subagent Red-Team Audit)**: For any non-trivial changes to sensitive architectural components (`src/memory/`, `src/graph/`, `src/agent/`, `.agents/scripts/`), the Agent is **strictly prohibited from using Tier 1 as a substitute**. The Agent MUST invoke an isolated, read-only subagent (`Role: "Adversarial Code Auditor"`, `TypeName: "research"`) to stress-test the implementation, probe corner cases (silent degradations, dynamic properties, cross-module side effects), and issue a formal 《红蓝对抗审计裁决书》 (Adversarial Verdict).
+- **Public Adversarial Dialogue & Remediation Loop**: The authoring Agent (Blue Team) must publicly address every finding raised by the Red-Team Auditor, implement necessary fixes or regression tests, and confirm resolution before a local `git commit` is permitted. Silently bypassing the auditor or rubber-stamping changes is strictly forbidden.
+

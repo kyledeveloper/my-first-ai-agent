@@ -40,6 +40,49 @@ function extractHunkMatches(text, linesSet) {
 }
 
 /**
+ * Check if a git diff chunk corresponds to the specified target file.
+ * Prevents basename substring cross-contamination (e.g. test/db.test.js vs src/db.js).
+ * @param {string} chunk - Unified diff chunk
+ * @param {string|null} targetFilePath - Target file path
+ * @returns {boolean}
+ */
+function isChunkForTarget(chunk, targetFilePath) {
+  if (!targetFilePath) return true;
+  const normTarget = targetFilePath.replace(/\\/g, '/');
+
+  const gitHeader = chunk.match(/^diff --git\s+a\/(.+?)\s+b\/(.+?)(?:\r?\n|$)/m);
+  const candidates = [];
+  if (gitHeader) {
+    candidates.push(gitHeader[1].trim(), gitHeader[2].trim());
+  } else {
+    const patchHeaders = chunk.match(/(?:---|\+\+\+)\s+[ab]\/([^\t\r\n]+)/g);
+    if (patchHeaders) {
+      for (const ph of patchHeaders) {
+        const m = ph.match(/[ab]\/(.+)$/);
+        if (m) candidates.push(m[1].trim());
+      }
+    }
+  }
+
+  if (candidates.length === 0) return true;
+
+  return candidates.some(cand => {
+    if (cand === '/dev/null') return false;
+    return normTarget === cand || normTarget.endsWith('/' + cand) || cand.endsWith('/' + normTarget);
+  });
+}
+
+/**
+ * Check if a target file was renamed in git diff text.
+ */
+function isTargetRenamed(diffText, targetFilePath) {
+  if (!diffText || !targetFilePath) return false;
+  const base = path.basename(targetFilePath);
+  const renamePattern = new RegExp(`(?:rename from|rename to).*?${base}`, 'i');
+  return renamePattern.test(diffText);
+}
+
+/**
  * Parse unified diff text (git diff -U0) and extract modified line numbers.
  * @param {string} diffText - Raw diff output
  * @param {string} targetFilePath - Optional target file path to filter hunks
@@ -50,17 +93,10 @@ function parseDiffHunks(diffText, targetFilePath = null) {
 
   const lines = new Set();
   const fileChunks = diffText.split(/^diff --git /m);
-  const targetBase = targetFilePath ? path.basename(targetFilePath) : null;
 
   for (const chunk of fileChunks) {
     if (!chunk.trim()) continue;
-
-    if (targetBase) {
-      const headerMatch = chunk.match(/(?:---|\+\+\+)\s+[ab]\/([^\n\r]+)/g);
-      const belongsToTarget = !headerMatch || headerMatch.some(h => h.includes(targetBase));
-      if (!belongsToTarget) continue;
-    }
-
+    if (!isChunkForTarget(chunk, targetFilePath)) continue;
     extractHunkMatches(chunk, lines);
   }
 
@@ -106,6 +142,38 @@ function getModifiedLines(filePath, options = {}) {
 }
 
 /**
+ * Check if a private node is called directly or transitively by any exported function in the file.
+ * @param {string} privateName - The unexported node name
+ * @param {object} fileNode - The parsed file node from graph
+ * @returns {string|null} - Name of the exported function depending on it, or null
+ */
+function findDependentExport(privateName, fileNode) {
+  if (!fileNode || !fileNode.exports || fileNode.exports.length === 0) return null;
+  const functions = fileNode.functions || [];
+  const exportsSet = new Set(fileNode.exports);
+
+  const visited = new Set();
+  function canReachPrivate(funcName) {
+    if (visited.has(funcName)) return false;
+    visited.add(funcName);
+    const fn = functions.find(f => f.name === funcName);
+    if (!fn || !fn.calls) return false;
+    if (fn.calls.includes(privateName)) return true;
+    for (const subCall of fn.calls) {
+      if (canReachPrivate(subCall)) return true;
+    }
+    return false;
+  }
+
+  for (const exp of exportsSet) {
+    if (canReachPrivate(exp)) {
+      return exp;
+    }
+  }
+  return null;
+}
+
+/**
  * Evaluate if file modifications are confined to local private scope.
  */
 function evaluateDiffScope(targetFile, graph, options) {
@@ -115,6 +183,15 @@ function evaluateDiffScope(targetFile, graph, options) {
   }
 
   if (modifiedLines.length === 0) {
+    if (options.diff && isTargetRenamed(options.diff, targetFile)) {
+      return {
+        isDiffAware: true,
+        scope: 'PUBLIC_CONTRACT',
+        modifiedLines: [1],
+        touchedSymbols: ['RENAME'],
+        notes: `File was renamed in git diff [PUBLIC_CONTRACT].`
+      };
+    }
     return {
       isDiffAware: true,
       scope: 'CLEAN',
@@ -132,6 +209,8 @@ function evaluateDiffScope(targetFile, graph, options) {
   const touchedSymbols = matchedNodes.map(n => n.name);
 
   let isPublic = touchesTopLevel || touchesExports;
+  let dependentPublicSymbol = null;
+
   for (const node of matchedNodes) {
     if ((fileNode.exports || []).includes(node.name)) {
       isPublic = true;
@@ -140,6 +219,12 @@ function evaluateDiffScope(targetFile, graph, options) {
     const externalCallers = graph.findSymbolCallers(node.name).filter(f => f !== targetFile);
     if (externalCallers.length > 0) {
       isPublic = true;
+      break;
+    }
+    const depExp = findDependentExport(node.name, fileNode);
+    if (depExp) {
+      isPublic = true;
+      dependentPublicSymbol = depExp;
       break;
     }
   }
@@ -154,12 +239,16 @@ function evaluateDiffScope(targetFile, graph, options) {
     };
   }
 
+  const reason = dependentPublicSymbol
+    ? `Private function "${touchedSymbols[0]}" is called by exported function "${dependentPublicSymbol}"`
+    : (touchedSymbols.join(', ') || 'exported statements');
+
   return {
     isDiffAware: true,
     scope: 'PUBLIC_CONTRACT',
     modifiedLines,
-    touchedSymbols,
-    notes: `Changes affect public contract [PUBLIC_CONTRACT]: ${touchedSymbols.join(', ') || 'exported statements'}.`
+    touchedSymbols: dependentPublicSymbol ? [...touchedSymbols, dependentPublicSymbol] : touchedSymbols,
+    notes: `Changes affect public contract [PUBLIC_CONTRACT]: ${reason}.`
   };
 }
 
