@@ -90,7 +90,10 @@ function stripComments(code) {
 
     if (c === '/' && next === '*') {
       i += 2;
-      while (i + 1 < n && !(code[i] === '*' && code[i + 1] === '/')) i++;
+      while (i + 1 < n && !(code[i] === '*' && code[i + 1] === '/')) {
+        if (code[i] === '\n') out += '\n';
+        i++;
+      }
       i = Math.min(n, i + 2);
       continue;
     }
@@ -100,6 +103,35 @@ function stripComments(code) {
   }
 
   return out;
+}
+
+/**
+ * Get 1-based line number for a character index in source code.
+ */
+function getLineNumber(code, index) {
+  let line = 1;
+  const len = Math.min(index, code.length);
+  for (let i = 0; i < len; i++) {
+    if (code[i] === '\n') line++;
+  }
+  return line;
+}
+
+/**
+ * Find matching closing brace index for an opening brace starting at or after startIndex.
+ */
+function findMatchingBrace(code, startIndex) {
+  const openIdx = code.indexOf('{', startIndex);
+  if (openIdx === -1) return null;
+  let depth = 1;
+  for (let i = openIdx + 1; i < code.length; i++) {
+    if (code[i] === '{') depth++;
+    else if (code[i] === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return null;
 }
 
 /**
@@ -182,9 +214,15 @@ function parseSource(code, filePath) {
   // 3. Extract Classes and base class extensions
   const classRegex = /class\s+([a-zA-Z0-9_$]+)(?:\s+extends\s+([a-zA-Z0-9_$]+))?\s*\{/g;
   while ((match = classRegex.exec(cleanCode)) !== null) {
+    const startLine = getLineNumber(cleanCode, match.index);
+    const endIdx = findMatchingBrace(cleanCode, match.index + match[0].indexOf('{'));
+    const endLine = endIdx !== null ? getLineNumber(cleanCode, endIdx) : startLine;
+
     classes.push({
       name: match[1],
-      extends: match[2] || null
+      extends: match[2] || null,
+      startLine,
+      endLine
     });
     if (match[2]) {
       callSites.add(match[2]);
@@ -195,18 +233,40 @@ function parseSource(code, filePath) {
   // Standard functions: function foo(...)
   const stdFuncRegex = /(?:async\s+)?function\s+([a-zA-Z0-9_$]+)\s*\(([^)]*)\)/g;
   while ((match = stdFuncRegex.exec(cleanCode)) !== null) {
+    const startLine = getLineNumber(cleanCode, match.index);
+    const endIdx = findMatchingBrace(cleanCode, match.index + match[0].length);
+    const endLine = endIdx !== null ? getLineNumber(cleanCode, endIdx) : startLine;
+
     functions.push({
       name: match[1],
-      params: match[2].split(',').map(p => p.trim()).filter(Boolean)
+      params: match[2].split(',').map(p => p.trim()).filter(Boolean),
+      startLine,
+      endLine
     });
   }
 
   // Arrow & variable functions: const foo = (params) => OR const foo = async function(...)
   const varFuncRegex = /(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:async\s*)?(?:\(([^)]*)\)|[a-zA-Z0-9_$]+)\s*=>/g;
   while ((match = varFuncRegex.exec(cleanCode)) !== null) {
+    const startLine = getLineNumber(cleanCode, match.index);
+    const rest = cleanCode.slice(match.index + match[0].length);
+    const firstNonWs = rest.search(/\S/);
+    let endLine = startLine;
+    if (firstNonWs !== -1 && rest[firstNonWs] === '{') {
+      const endIdx = findMatchingBrace(cleanCode, match.index + match[0].length + firstNonWs);
+      endLine = endIdx !== null ? getLineNumber(cleanCode, endIdx) : startLine;
+    } else {
+      const nextSemi = rest.indexOf(';');
+      const nextNl = rest.indexOf('\n');
+      const offset = nextSemi !== -1 ? nextSemi : (nextNl !== -1 ? nextNl : 0);
+      endLine = getLineNumber(cleanCode, match.index + match[0].length + offset);
+    }
+
     functions.push({
       name: match[1],
-      params: (match[2] || '').split(',').map(p => p.trim()).filter(Boolean)
+      params: (match[2] || '').split(',').map(p => p.trim()).filter(Boolean),
+      startLine,
+      endLine
     });
   }
 
@@ -279,8 +339,62 @@ function parseSource(code, filePath) {
   };
 }
 
+/**
+ * Find parsed nodes (functions, classes) overlapping with specified line numbers.
+ * @param {object} parsedSource - Output from parseSource
+ * @param {number[]} lineNumbers - Array of 1-based modified line numbers
+ * @returns {{ matchedNodes: Array<object>, coveredLines: number[], touchesTopLevel: boolean, touchesExports: boolean }}
+ */
+function findNodesAtLines(parsedSource, lineNumbers) {
+  if (!parsedSource || !Array.isArray(lineNumbers) || lineNumbers.length === 0) {
+    return { matchedNodes: [], coveredLines: [], touchesTopLevel: false, touchesExports: false };
+  }
+
+  const lineSet = new Set(lineNumbers);
+  const matchedNodes = [];
+  const coveredLines = new Set();
+
+  const allNodes = [
+    ...(parsedSource.functions || []).map(f => ({ ...f, type: 'function' })),
+    ...(parsedSource.classes || []).map(c => ({ ...c, type: 'class' }))
+  ];
+
+  for (const node of allNodes) {
+    if (typeof node.startLine !== 'number' || typeof node.endLine !== 'number') continue;
+    let nodeMatched = false;
+    for (let l = node.startLine; l <= node.endLine; l++) {
+      if (lineSet.has(l)) {
+        nodeMatched = true;
+        coveredLines.add(l);
+      }
+    }
+    if (nodeMatched) {
+      matchedNodes.push(node);
+    }
+  }
+
+  const exportNames = new Set(parsedSource.exports || []);
+  const touchesExports = matchedNodes.some(n => exportNames.has(n.name));
+  let touchesTopLevel = false;
+
+  for (const l of lineSet) {
+    if (!coveredLines.has(l)) {
+      touchesTopLevel = true;
+      break;
+    }
+  }
+
+  return {
+    matchedNodes,
+    coveredLines: Array.from(coveredLines),
+    touchesTopLevel,
+    touchesExports
+  };
+}
+
 module.exports = {
   resolveModulePath,
   parseSource,
-  stripComments
+  stripComments,
+  findNodesAtLines
 };

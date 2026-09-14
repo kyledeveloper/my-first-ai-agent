@@ -211,4 +211,162 @@ assert.ok(parsedEsm.exports.includes('strip'), 'export { x as strip } must use t
 assert.ok(parsedEsm.exports.includes('calculateBlastRadius'));
 console.log('✓ Test 12 Passed: export { } and import * as are parsed.');
 
-console.log('\nAll 12 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+// Test 13: Parser function and class line range tracking
+console.log('Testing Parser line range tracking for functions and classes...');
+const sampleWithLines = `
+function firstFunc() {
+  const x = 1;
+  return x;
+}
+
+class SampleClass {
+  constructor() {}
+}
+
+const arrow = (a) => {
+  return a * 2;
+};
+`;
+const parsedWithLines = parseSource(sampleWithLines, '/sample.js');
+const first = parsedWithLines.functions.find(f => f.name === 'firstFunc');
+assert.ok(first, 'Should parse firstFunc');
+assert.strictEqual(first.startLine, 2, 'firstFunc startLine should be 2');
+assert.strictEqual(first.endLine, 5, 'firstFunc endLine should be 5');
+
+const cls = parsedWithLines.classes.find(c => c.name === 'SampleClass');
+assert.ok(cls, 'Should parse SampleClass');
+assert.strictEqual(cls.startLine, 7, 'SampleClass startLine should be 7');
+assert.strictEqual(cls.endLine, 9, 'SampleClass endLine should be 9');
+
+const arr = parsedWithLines.functions.find(f => f.name === 'arrow');
+assert.ok(arr, 'Should parse arrow');
+assert.strictEqual(arr.startLine, 11, 'arrow startLine should be 11');
+assert.strictEqual(arr.endLine, 13, 'arrow endLine should be 13');
+console.log('✓ Test 13 Passed: Parser accurately records startLine and endLine for functions and classes.');
+
+// Test 14: parseDiffHunks parses modified lines from unified diff
+console.log('Testing parseDiffHunks line number extraction...');
+const { parseDiffHunks } = require(blastPath);
+assert.ok(parseDiffHunks, 'blastRadius.js must export parseDiffHunks');
+const sampleDiff = `
+--- a/src/service.js
++++ b/src/service.js
+@@ -10,0 +11,3 @@
++const internalA = 1;
++const internalB = 2;
++return internalA + internalB;
+@@ -25,2 +28,1 @@
+-oldLine1
+-oldLine2
++newLine1
+@@ -40 +43 @@
++singleChange
+`;
+const modifiedLines = parseDiffHunks(sampleDiff, 'src/service.js');
+assert.deepStrictEqual(modifiedLines, [11, 12, 13, 28, 43], 'Should extract 1-based line numbers from hunks');
+console.log('✓ Test 14 Passed: parseDiffHunks accurately extracts modified line numbers.');
+
+// Test 15: Modifying an internal private function converges to LOCAL_PRIVATE
+console.log('Testing Diff-Aware blast radius on private internal modification...');
+const os = require('os');
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'blast-diff-'));
+const modAPath = path.join(tmpDir, 'moduleA.js');
+const modBPath = path.join(tmpDir, 'moduleB.js');
+
+const modACode = `
+function _internalHelper(val) {
+  return val * 10;
+}
+
+function publicExported() {
+  return "hello";
+}
+
+module.exports = {
+  publicExported
+};
+`;
+
+const modBCode = `
+const { publicExported } = require('./moduleA');
+function consumer() {
+  return publicExported();
+}
+module.exports = { consumer };
+`;
+
+fs.writeFileSync(modAPath, modACode, 'utf8');
+fs.writeFileSync(modBPath, modBCode, 'utf8');
+
+const isolatedGraph = new SymbolGraph({ rootDir: tmpDir });
+isolatedGraph.build();
+
+// Verify downstream relationship initially
+const downstreamBefore = isolatedGraph.getDownstreamFiles(modAPath);
+assert.ok(downstreamBefore.includes(modBPath), 'moduleB should depend on moduleA');
+
+// Scenario 1: Diff modifies ONLY _internalHelper (line 3: return val * 10;)
+const privateDiff = `
+--- a/moduleA.js
++++ b/moduleA.js
+@@ -3 +3 @@
+-  return val * 10;
++  return val * 20;
+`;
+
+const blastPrivate = calculateBlastRadius(modAPath, {
+  graph: isolatedGraph,
+  diff: privateDiff,
+  diffAware: true,
+  rootDir: tmpDir
+});
+
+assert.strictEqual(blastPrivate.isDiffAware, true, 'Report should be marked as diff-aware');
+assert.strictEqual(blastPrivate.scope, 'LOCAL_PRIVATE', 'Scope should converge to LOCAL_PRIVATE');
+assert.strictEqual(blastPrivate.riskLevel, 'LOW', 'Risk level should be LOW for private changes');
+assert.deepStrictEqual(blastPrivate.directFiles, [], 'No downstream files should be in direct impact for private changes');
+assert.deepStrictEqual(blastPrivate.indirectFiles, [], 'No indirect files should be alerted for private changes');
+assert.ok(blastPrivate.notes && blastPrivate.notes.includes('LOCAL_PRIVATE'), 'Notes should explain local private containment');
+console.log('✓ Test 15 Passed: Internal private modification converges to LOCAL_PRIVATE with LOW risk.');
+
+// Test 16: Modifying public exported function triggers full blast radius
+console.log('Testing Diff-Aware blast radius on public exported function modification...');
+const publicDiff = `
+--- a/moduleA.js
++++ b/moduleA.js
+@@ -7 +7 @@
+-  return "hello";
++  return "world";
+`;
+
+const blastPublic = calculateBlastRadius(modAPath, {
+  graph: isolatedGraph,
+  diff: publicDiff,
+  diffAware: true,
+  rootDir: tmpDir
+});
+
+assert.strictEqual(blastPublic.isDiffAware, true);
+assert.strictEqual(blastPublic.scope, 'PUBLIC_CONTRACT', 'Scope should be PUBLIC_CONTRACT when touching exported function');
+assert.ok(blastPublic.directFiles.includes(modBPath), 'moduleB must be alerted when public function is modified');
+console.log('✓ Test 16 Passed: Modifying exported function triggers full downstream blast radius.');
+
+// Test 17: CLI execution with --diff flag
+console.log('Testing CLI execution with --diff flag...');
+const cliDiffRun = spawnSync(process.execPath, [
+  cliPath,
+  '--target', 'src/memory/db.js',
+  '--diff',
+  '--json'
+], { encoding: 'utf8' });
+
+assert.strictEqual(cliDiffRun.status, 0, 'CLI with --diff should exit with 0');
+const parsedCliDiff = JSON.parse(cliDiffRun.stdout.trim());
+assert.strictEqual(parsedCliDiff.target, 'src/memory/db.js');
+assert.strictEqual(parsedCliDiff.isDiffAware, true, 'isDiffAware should be true in CLI report');
+console.log('✓ Test 17 Passed: CLI with --diff flag produces structured diff-aware report.');
+
+// Cleanup hermetic tmp directory
+fs.rmSync(tmpDir, { recursive: true, force: true });
+
+console.log('\nAll 17 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');

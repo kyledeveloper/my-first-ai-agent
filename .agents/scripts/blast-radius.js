@@ -49,6 +49,7 @@ Usage:
 
 Options:
   --target <path|name>   Target file path or symbol identifier (required)
+  --diff                 Enable Git Diff-aware analysis (converges private changes to LOCAL_PRIVATE)
   --tree                 Render hierarchical ASCII dependency tree
   --json                 Output machine-readable JSON format
   --lang <lang>          Language ('en-US' or 'zh-CN', defaults to $LANG)
@@ -57,6 +58,7 @@ Options:
 
 Examples:
   node .agents/scripts/runner.js blast-radius --target src/memory/db.js
+  node .agents/scripts/runner.js blast-radius --target src/memory/db.js --diff
   node .agents/scripts/runner.js blast-radius --target MemoryDatabase --tree
   node .agents/scripts/runner.js blast-radius --target calculateScore --json
 `);
@@ -64,6 +66,10 @@ Examples:
 
 function renderTree(report, rootDir) {
   console.log(`\n📌 Blast Radius Tree: [${report.targetType.toUpperCase()}] ${report.target}`);
+  if (report.isDiffAware && report.scope === 'LOCAL_PRIVATE') {
+    console.log('└── 🟢 (Changes strictly confined to internal private scope - 0 downstream regressions)');
+    return;
+  }
   if (report.directFiles.length === 0) {
     console.log('└── (No downstream dependents found - Safe isolated change)');
     return;
@@ -110,7 +116,8 @@ async function run() {
   i18n.changeLanguage(selectedLang);
 
   const maxDepth = parseInt(args['max-depth'] || '10', 10);
-  const report = calculateBlastRadius(target, { rootDir, maxDepth });
+  const diffAware = !!args.diff;
+  const report = calculateBlastRadius(target, { rootDir, maxDepth, diffAware });
 
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
@@ -125,6 +132,12 @@ async function run() {
   // Standard output format
   console.log(i18n.t('cli.blast.header'));
   console.log(i18n.t('cli.blast.target', { target: report.target, type: report.targetType }));
+
+  if (report.isDiffAware) {
+    const scopeEmoji = report.scope === 'LOCAL_PRIVATE' ? '🟢 [LOCAL_PRIVATE]' : (report.scope === 'CLEAN' ? '⚪ [CLEAN]' : '🔵 [PUBLIC_CONTRACT]');
+    console.log(`Diff Scope: ${scopeEmoji}`);
+    if (report.notes) console.log(`Note: ${report.notes}`);
+  }
 
   const riskEmoji = report.riskLevel === 'HIGH' ? '🔴' : (report.riskLevel === 'MEDIUM' ? '🟡' : '🟢');
   console.log(i18n.t('cli.blast.risk_level', { level: `${riskEmoji} ${report.riskLevel}`, score: report.riskScore }));

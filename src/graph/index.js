@@ -53,12 +53,14 @@ class SymbolGraph {
    * Build the complete project graph by scanning and analyzing files.
    */
   build() {
-    const scanDirs = [
+    const candidateDirs = [
       path.join(this.rootDir, 'src'),
       path.join(this.rootDir, 'test'),
       path.join(this.rootDir, '.agents/scripts'),
       path.join(this.rootDir, 'examples')
-    ];
+    ].filter(d => fs.existsSync(d));
+
+    const scanDirs = candidateDirs.length > 0 ? candidateDirs : [this.rootDir];
 
     let allFiles = [];
     for (const d of scanDirs) {
