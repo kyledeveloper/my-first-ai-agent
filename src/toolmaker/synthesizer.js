@@ -65,11 +65,16 @@ function parseArgs(argv) {
     if (arg === '--help' || arg === '-h') {
       args.help = true;
     } else if (arg.startsWith('--')) {
-      const key = arg.slice(2);
-      if (i + 1 < argv.length && !argv[i + 1].startsWith('--')) {
-        args[key] = argv[++i];
+      const rawKey = arg.slice(2);
+      if (rawKey.includes('=')) {
+        const eqIdx = rawKey.indexOf('=');
+        const k = rawKey.slice(0, eqIdx);
+        const v = rawKey.slice(eqIdx + 1);
+        args[k] = v;
+      } else if (i + 1 < argv.length && !argv[i + 1].startsWith('--')) {
+        args[rawKey] = argv[++i];
       } else {
-        args[key] = true;
+        args[rawKey] = true;
       }
     } else {
       args._.push(arg);
@@ -107,8 +112,15 @@ run();
       fs.chmodSync(targetScriptPath, '755');
     } catch (e) {}
 
-    // Self-validate syntax
-    this.validateSyntax(targetScriptPath);
+    // Self-validate syntax and safely clean up on error
+    try {
+      this.validateSyntax(targetScriptPath);
+    } catch (valErr) {
+      if (fs.existsSync(targetScriptPath)) {
+        try { fs.unlinkSync(targetScriptPath); } catch (e) {}
+      }
+      throw valErr;
+    }
 
     // Register in tool registry
     this.registry.registerTool({

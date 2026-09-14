@@ -21,7 +21,7 @@
         "--base locales/zh-CN --target locales/en-US",
         "--json"
       ],
-      "registeredAt": "2026-09-14T05:01:14.988Z"
+      "registeredAt": "2026-09-14T05:32:40.433Z"
     }
   }
 }

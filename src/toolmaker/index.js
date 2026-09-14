@@ -43,12 +43,16 @@ class ToolmakerEngine {
   getTool(name) {
     return this.registry.getTool(name);
   }
+
+  close() {
+    this.tracker.close();
+  }
 }
 
 // Global default singleton
 let defaultInstance = null;
 function getToolmaker(options = {}) {
-  if (!defaultInstance) {
+  if (!defaultInstance || !defaultInstance.tracker?.db?.isOpen) {
     defaultInstance = new ToolmakerEngine(options);
   }
   return defaultInstance;

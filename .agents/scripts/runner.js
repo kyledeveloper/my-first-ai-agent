@@ -84,7 +84,13 @@ function main() {
     cwd: process.cwd()
   });
 
-  process.exit(child.status || 0);
+  if (child.error) {
+    console.error(`❌ Execution error: ${child.error.message}`);
+    process.exit(1);
+  }
+
+  const exitCode = child.status !== null ? child.status : (child.signal ? 1 : 0);
+  process.exit(exitCode);
 }
 
 main();

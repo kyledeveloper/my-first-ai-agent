@@ -19,6 +19,7 @@ class MemoryDatabase {
 
   init() {
     this.db.exec('PRAGMA foreign_keys = ON;');
+    this.db.exec('PRAGMA busy_timeout = 5000;');
     if (this.dbPath !== ':memory:') {
       this.db.exec('PRAGMA journal_mode = WAL;');
     }

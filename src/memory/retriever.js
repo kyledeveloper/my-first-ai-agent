@@ -127,7 +127,7 @@ class ExperienceRetriever {
                  e.intent, e.domain_tags, rank
           FROM experience_fts
           JOIN reflections r ON r.id = experience_fts.reflection_id
-          JOIN episodes e ON e.id = r.episode_id
+          LEFT JOIN episodes e ON e.id = r.episode_id
           WHERE experience_fts MATCH ?
           ORDER BY rank
           LIMIT ?
@@ -142,7 +142,7 @@ class ExperienceRetriever {
     if (rawResults.length === 0 && tokens.length > 0) {
       const targetTokens = tokens.slice(0, 5);
       const clauses = targetTokens.map(() => `(
-        e.intent LIKE ? OR
+        (e.intent IS NOT NULL AND e.intent LIKE ?) OR
         r.trigger_pattern LIKE ? OR
         r.failure_mode LIKE ? OR
         r.root_cause LIKE ? OR
@@ -160,7 +160,7 @@ class ExperienceRetriever {
                r.confidence_score, r.importance_score, r.hit_count, r.created_at, r.last_accessed_at,
                e.intent, e.domain_tags, 0 as rank
         FROM reflections r
-        JOIN episodes e ON e.id = r.episode_id
+        LEFT JOIN episodes e ON e.id = r.episode_id
         WHERE ${clauses}
         ORDER BY r.hit_count DESC
         LIMIT ?
@@ -196,7 +196,7 @@ class ExperienceRetriever {
       if (minRank !== maxRank) {
         // More negative rank is better in FTS5 BM25
         bm25Relative = (maxRank - (row.rank || 0)) / (maxRank - minRank);
-      } else if (ranks.length === 1 && (row.rank || 0) < 0) {
+      } else if ((row.rank || 0) < 0) {
         bm25Relative = 1.0;
       }
 
@@ -232,6 +232,8 @@ class ExperienceRetriever {
     if (autoIncrementHit) {
       for (const item of topResults) {
         this.db.incrementHitCount(item.id, now);
+        item.hit_count = (item.hit_count || 0) + 1;
+        item.last_accessed_at = now;
       }
     }
 
@@ -253,8 +255,9 @@ class ExperienceRetriever {
       const scoreBadge = showScores
         ? ` *(评分: ${l.score} [相关度 ${l.relScore} | 新近度 ${l.recScore} | 重要度 ${l.impScore}])*`
         : '';
+      const causeText = l.root_cause ? ` *(根因: ${l.root_cause})*` : '';
       lines.push(`> • **场景**: ${l.trigger_pattern}`);
-      lines.push(`>   **避坑指南**: ${l.corrective_heuristic} *(根因: ${l.root_cause})${scoreBadge}*`);
+      lines.push(`>   **避坑指南**: ${l.corrective_heuristic}${causeText}${scoreBadge}`);
     }
 
     return lines.join('\n');

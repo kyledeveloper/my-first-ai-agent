@@ -58,7 +58,7 @@ class LongTermMemory {
 // Global default singleton
 let defaultInstance = null;
 function getMemory(dbPath = DEFAULT_DB_PATH) {
-  if (!defaultInstance || (dbPath && defaultInstance.db.dbPath !== dbPath)) {
+  if (!defaultInstance || !defaultInstance.db?.db?.isOpen || (dbPath && defaultInstance.db.dbPath !== dbPath)) {
     defaultInstance = new LongTermMemory(dbPath);
   }
   return defaultInstance;

@@ -23,8 +23,15 @@ class PatternTracker {
   }
 
   init() {
+    if (this.db && typeof this.db.exec === 'function') {
+      try {
+        this.db.exec('PRAGMA foreign_keys = ON;');
+        this.db.exec('PRAGMA busy_timeout = 5000;');
+        this.db.exec('PRAGMA journal_mode = WAL;');
+      } catch (e) {}
+    }
     const schemaPath = path.join(__dirname, 'schema.sql');
-    if (fs.existsSync(schemaPath)) {
+    if (fs.existsSync(schemaPath) && this.db && typeof this.db.exec === 'function') {
       const schemaSql = fs.readFileSync(schemaPath, 'utf8');
       this.db.exec(schemaSql);
     }
@@ -111,6 +118,14 @@ class PatternTracker {
       WHERE occurrences >= ?
       ORDER BY occurrences DESC
     `).all(minOccurrences);
+  }
+
+  close() {
+    if (this.db && typeof this.db.close === 'function') {
+      try {
+        this.db.close();
+      } catch (e) {}
+    }
   }
 }
 
