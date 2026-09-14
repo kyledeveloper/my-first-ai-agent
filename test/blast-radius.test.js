@@ -172,4 +172,27 @@ assert.ok(parsedWithComments.exports.includes('DEFAULT_DB_PATH'));
 assert.ok(parsedWithComments.exports.includes('calculateScore'));
 console.log('✓ Test 10 Passed: Embedded line comments do not corrupt exported symbol extraction.');
 
-console.log('\nAll 10 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+// Test 11: URL literals containing // must not be treated as comments
+console.log('Testing Parser preservation of https:// URL string literals...');
+const codeWithUrlExport = `
+module.exports = { url: "https://x.com", foo, bar };
+`;
+const parsedUrlExport = parseSource(codeWithUrlExport, '/test-url.js');
+assert.ok(parsedUrlExport.exports.includes('url'), 'url export must survive https:// in a string');
+assert.ok(parsedUrlExport.exports.includes('foo'), 'foo export must survive https:// in a string');
+assert.ok(parsedUrlExport.exports.includes('bar'), 'bar export must survive https:// in a string');
+
+const codeWithUrlAndComment = `
+const API = "https://example.com/v1";
+const { MemoryDatabase } = require("./db");
+function fetchUser() { return API; } // trailing comment
+module.exports = { fetchUser, API };
+`;
+const parsedUrlComment = parseSource(codeWithUrlAndComment, '/tmp/service.js');
+assert.ok(parsedUrlComment.imports.some(i => i.source.includes('db')), 'require after a URL literal must still parse');
+assert.ok(parsedUrlComment.exports.includes('fetchUser'));
+assert.ok(parsedUrlComment.exports.includes('API'));
+assert.ok(parsedUrlComment.functions.some(f => f.name === 'fetchUser'));
+console.log('✓ Test 11 Passed: https:// inside strings is not stripped as a line comment.');
+
+console.log('\nAll 11 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');

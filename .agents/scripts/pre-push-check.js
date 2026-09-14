@@ -23,7 +23,7 @@ const i18n = require(path.resolve(__dirname, '../../src/i18n'));
 const SECRET_PATTERNS = [
   { name: 'GitHub Token', regex: /(?:ghp|gho|ghu|ghs|ghr)_[0-9a-zA-Z]{36}/ },
   { name: 'GitHub Fine-grained PAT', regex: /github_pat_[0-9a-zA-Z_]{22,}/ },
-  { name: 'OpenAI / LLM API Key', regex: /sk-[a-zA-Z0-9_\-]{20,}/ },
+  { name: 'OpenAI / LLM API Key', regex: /(?<![A-Za-z0-9_-])sk-[a-zA-Z0-9_-]{20,}/ },
   { name: 'AWS Access Key ID', regex: /\bAKIA[0-9A-Z]{16}\b/ },
   { name: 'Private Key Header', regex: /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/ },
   { name: 'Slack Token', regex: /xox[baprs]-[0-9a-zA-Z]{10,48}/ },

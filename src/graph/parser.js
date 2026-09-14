@@ -49,6 +49,60 @@ function resolveModulePath(importPath, currentFilePath) {
 }
 
 /**
+ * Strip line and block comments without treating // inside strings as comments.
+ * Preserves "https://..." and similar URL literals that a naive //.* regex would truncate.
+ */
+function stripComments(code) {
+  let out = '';
+  let i = 0;
+  const n = code.length;
+
+  while (i < n) {
+    const c = code[i];
+    const next = i + 1 < n ? code[i + 1] : '';
+
+    if (c === '"' || c === "'" || c === '`') {
+      const quote = c;
+      out += c;
+      i++;
+      while (i < n) {
+        const ch = code[i];
+        out += ch;
+        if (ch === '\\' && i + 1 < n) {
+          out += code[i + 1];
+          i += 2;
+          continue;
+        }
+        if (ch === quote) {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    if (c === '/' && next === '/') {
+      i += 2;
+      while (i < n && code[i] !== '\n') i++;
+      continue;
+    }
+
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i + 1 < n && !(code[i] === '*' && code[i + 1] === '/')) i++;
+      i = Math.min(n, i + 2);
+      continue;
+    }
+
+    out += c;
+    i++;
+  }
+
+  return out;
+}
+
+/**
  * Parse source code string and extract symbols, dependencies, and exports.
  * @param {string} code - Source code
  * @param {string} filePath - Absolute file path
@@ -67,7 +121,7 @@ function parseSource(code, filePath) {
   }
 
   // Strip block and line comments to avoid token corruption
-  const cleanCode = code.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+  const cleanCode = stripComments(code);
 
   const imports = [];
   const exportsList = new Set();
@@ -206,5 +260,6 @@ function parseSource(code, filePath) {
 
 module.exports = {
   resolveModulePath,
-  parseSource
+  parseSource,
+  stripComments
 };

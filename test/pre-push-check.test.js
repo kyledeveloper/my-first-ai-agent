@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -52,6 +53,16 @@ const cleanResult = gatekeeper.scanSecrets(cleanDiffSample);
 assert.strictEqual(cleanResult.hasSecrets, false, 'Clean code should have no secrets detected');
 console.log('✓ Test 2 Passed: Clean code produces zero false positives.');
 
+// Test 2b: OpenAI key pattern must not match substrings like disk- or task-sk-
+console.log('Testing OpenAI key false positives (disk-/task-sk- prefixes)...');
+const diskFalse = gatekeeper.scanSecrets('+ const path = "disk-abcdefghijklmnopqrstuvwxyz";');
+assert.strictEqual(diskFalse.hasSecrets, false, 'disk-... must not be flagged as an OpenAI key');
+const taskSkFalse = gatekeeper.scanSecrets('+ const id = "task-sk-abcdefghijklmnopqrstuvwxyz";');
+assert.strictEqual(taskSkFalse.hasSecrets, false, 'task-sk-... must not be flagged as an OpenAI key');
+const realKey = gatekeeper.scanSecrets(`+ export const OPENAI_KEY = "${fakeOpenAI}";`);
+assert.strictEqual(realKey.hasSecrets, true, 'A standalone sk- key must still be detected');
+console.log('✓ Test 2b Passed: OpenAI key regex no longer matches disk-/task-sk- substrings.');
+
 // Test 3: Code Smell & Complexity Analysis
 console.log('Testing Code Smell Detection (function length and nesting)...');
 const longFunctionContent = `
@@ -91,18 +102,18 @@ const secretRun = spawnSync(process.execPath, [scriptPath, '--scan-text', fakeOp
 assert.strictEqual(secretRun.status, 1, 'CLI should exit with code 1 when hardcoded secrets are present');
 console.log('✓ Test 4 Passed: CLI correctly blocks execution (exit code 1) on secrets.');
 
-// Test 5: Git Hook Installer Verification
+// Test 5: Git Hook Installer Verification (isolated temp repo — never touch the real .git)
 console.log('Testing Git Hook Installer...');
-const hookInstallRun = spawnSync(process.execPath, [installerPath], {
-  encoding: 'utf8'
-});
-assert.strictEqual(hookInstallRun.status, 0, 'Hook installer should exit with code 0');
-
-const hookFilePath = path.resolve(__dirname, '../.git/hooks/pre-push');
-assert.ok(fs.existsSync(hookFilePath), '.git/hooks/pre-push file must exist after installer runs');
+const { installHooks } = require(installerPath);
+const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-push-hooks-'));
+fs.mkdirSync(path.join(tmpRepo, '.git', 'hooks'), { recursive: true });
+const hookFilePath = installHooks({ repoRoot: tmpRepo });
+assert.strictEqual(hookFilePath, path.join(tmpRepo, '.git', 'hooks', 'pre-push'));
+assert.ok(fs.existsSync(hookFilePath), 'pre-push hook must be written under the supplied repoRoot');
 const hookContent = fs.readFileSync(hookFilePath, 'utf8');
 assert.ok(hookContent.includes('pre-push-check'), 'Hook script should call pre-push-check');
-console.log('✓ Test 5 Passed: Git hook installer created executable pre-push hook.');
+fs.rmSync(tmpRepo, { recursive: true, force: true });
+console.log('✓ Test 5 Passed: Git hook installer writes an executable pre-push hook into an isolated repo.');
 
 // Test 6: Diff Deletion Test - Removing a secret must NOT block push
 console.log('Testing Diff Deletion (removing old secrets should not be flagged)...');
@@ -152,4 +163,4 @@ assert.strictEqual(sensitiveFilesResult.hasSensitiveFiles, true);
 assert.strictEqual(sensitiveFilesResult.findings.length, 5); // .env, .env.local, .env.production, server.key, id_rsa (excludes .env.example)
 console.log('✓ Test 9 Passed: Sensitive files (.env, key, id_rsa) correctly detected while .env.example allowed.');
 
-console.log('\nAll 9 Pre-Push Gatekeeper tests passed successfully! 🎉');
+console.log('\nAll 10 Pre-Push Gatekeeper tests passed successfully! 🎉');

@@ -8,11 +8,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const repoRoot = path.resolve(__dirname, '../../');
-const gitHooksDir = path.join(repoRoot, '.git', 'hooks');
-const prePushHookPath = path.join(gitHooksDir, 'pre-push');
+const DEFAULT_REPO_ROOT = path.resolve(__dirname, '../../');
 
-function installHooks() {
+function installHooks(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot || DEFAULT_REPO_ROOT);
+  const gitHooksDir = path.join(repoRoot, '.git', 'hooks');
+  const prePushHookPath = path.join(gitHooksDir, 'pre-push');
+
   if (!fs.existsSync(gitHooksDir)) {
     fs.mkdirSync(gitHooksDir, { recursive: true });
   }
@@ -34,7 +36,6 @@ exit 0
 `;
 
   fs.writeFileSync(prePushHookPath, hookScript, { mode: 0o755 });
-  // Ensure executable permissions on POSIX
   try {
     fs.chmodSync(prePushHookPath, 0o755);
   } catch (e) {
@@ -42,10 +43,11 @@ exit 0
   }
 
   console.log(`✅ Git pre-push hook installed successfully at: ${prePushHookPath}`);
+  return prePushHookPath;
 }
 
 if (require.main === module) {
   installHooks();
 }
 
-module.exports = { installHooks };
+module.exports = { installHooks, DEFAULT_REPO_ROOT };
