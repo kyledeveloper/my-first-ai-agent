@@ -25,6 +25,13 @@ Run the memory search command to check for past lessons:
 node src/memory/index.js search "<your task intent in Chinese or English>"
 ```
 
+### Multi-Dimensional Scoring (三维加权打分机制)
+Retrieval employs the Generative Agents / MemGPT multi-dimensional scoring model:
+$$\text{Final Score} = \alpha \cdot S_{\text{rel}} + \beta \cdot S_{\text{rec}} + \gamma \cdot S_{\text{imp}}$$
+- **Relevance $S_{\text{rel}}$ ($\alpha = 0.5$)**: FTS5 BM25 + CJK Bigram keyword matching + domain tag overlap.
+- **Recency $S_{\text{rec}}$ ($\beta = 0.2$)**: Exponential decay $e^{-\lambda \Delta t}$ with 14-day half-life; hit retrieval refreshes activation timestamp.
+- **Importance $S_{\text{imp}}$ ($\gamma = 0.3$)**: Inherent severity / importance rating (0.1~1.0) reinforced by log-scaled `hit_count`.
+
 If relevant lessons are returned, **strictly follow the `避坑指南 (Corrective Heuristic)`** and proactively inform the user of the potential pitfall before running hazardous commands.
 
 ---
@@ -42,6 +49,7 @@ getMemory().recordExperience({
   context_summary: "<Environment details, OS, runtime version>",
   domain_tags: ["<tag1>", "<tag2>"], // e.g. ['npm', 'permissions', 'git']
   status: "recovered", // 'recovered' or 'failure'
+  importance_score: 0.8, // 0.1~1.0: 0.95 for fatal crashes / EPERM, 0.6 for warnings
   trigger_pattern: "<Concrete operation or syntax that caused the issue>",
   failure_mode: "<Specific error message or unexpected symptom>",
   root_cause: "<The underlying reason why the error happened>",

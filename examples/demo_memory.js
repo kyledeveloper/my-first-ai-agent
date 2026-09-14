@@ -13,6 +13,7 @@ mem.recordExperience({
   context_summary: 'macOS arm64, Node 24, IDE 沙盒隔离环境',
   domain_tags: ['npm', 'native-addons', 'sandbox', 'permissions'],
   status: 'recovered',
+  importance_score: 0.95,
   trigger_pattern: 'npm install 含 C++ 原生模块编译 (node-gyp rebuild)',
   failure_mode: 'EPERM: operation not permitted, uv_cwd / scandir build 权限拦截',
   root_cause: '沙盒环境拦截了 node-gyp 原生编译所需的系统调用与底层写入',
@@ -26,6 +27,7 @@ mem.recordExperience({
   context_summary: 'Antigravity workspace customization',
   domain_tags: ['mcp', 'plugin', 'antigravity', 'isolation'],
   status: 'success',
+  importance_score: 0.85,
   trigger_pattern: '用户要求仅在当前项目开启 MCP 插件，避免全局污染',
   failure_mode: '直接写在 ~/.gemini/config/mcp_config.json 会对所有项目全局生效',
   root_cause: 'Antigravity 全局配置目录适用于所有会话，缺少针对当前目录的独立性',
@@ -35,20 +37,20 @@ mem.recordExperience({
 console.log('\n📊 记忆库当前状态:');
 console.log(mem.stats());
 
-// 3. 模拟新任务触发 Pre-Task 检索
+// 3. 模拟新任务触发 Pre-Task 检索 (三维加权打分)
 console.log('\n----------------------------------------------------');
-console.log('🔍 场景 1: Agent 接到任务 "帮我安装一个需要编译的 sqlite 插件"');
+console.log('🔍 场景 1: Agent 接到任务 "帮我安装一个需要编译的 sqlite 插件" (展示多维打分)');
 console.log('----------------------------------------------------');
 const query1 = '安装 需要本地编译的 sqlite 原生库';
 const lessons1 = mem.query(query1, { autoIncrementHit: true });
-console.log(mem.formatPrompt(lessons1));
+console.log(mem.formatPrompt(lessons1, { showScores: true }));
 
 console.log('\n----------------------------------------------------');
-console.log('🔍 场景 2: Agent 接到任务 "我想为这个项目单独配置一个 MCP 工具"');
+console.log('🔍 场景 2: Agent 接到任务 "我想为这个项目单独配置一个 MCP 工具" (展示多维打分)');
 console.log('----------------------------------------------------');
 const query2 = '为这个项目单独配置 MCP 工具 避免影响全局';
 const lessons2 = mem.query(query2, { autoIncrementHit: true });
-console.log(mem.formatPrompt(lessons2));
+console.log(mem.formatPrompt(lessons2, { showScores: true }));
 
 console.log('\n----------------------------------------------------');
 console.log('📈 规则晋升候选检查 (Memory Consolidation):');

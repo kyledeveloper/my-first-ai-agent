@@ -17,11 +17,14 @@ class ReflexionEngine {
     failure_mode = '',
     root_cause,
     corrective_heuristic,
-    confidence_score = 1.0
+    confidence_score = 1.0,
+    importance_score = 0.8
   }) {
     if (!intent || !trigger_pattern || !root_cause || !corrective_heuristic) {
       throw new Error('Missing required fields for reflection (intent, trigger_pattern, root_cause, corrective_heuristic)');
     }
+
+    const now = Date.now();
 
     // Check if an identical or near-identical trigger already exists to deduplicate
     const existing = this.db.db.prepare(`
@@ -35,15 +38,15 @@ class ReflexionEngine {
       this.db.db.prepare(`
         UPDATE reflections
         SET hit_count = hit_count + 1,
-            confidence_score = MIN(1.0, confidence_score + 0.1)
+            confidence_score = MIN(1.0, confidence_score + 0.1),
+            last_accessed_at = ?
         WHERE id = ?
-      `).run(existing.id);
+      `).run(now, existing.id);
       return { id: existing.id, reinforced: true };
     }
 
     const episodeId = `ep_${crypto.randomUUID()}`;
     const reflectionId = `ref_${crypto.randomUUID()}`;
-    const now = Date.now();
 
     this.db.insertEpisode({
       id: episodeId,
@@ -63,9 +66,11 @@ class ReflexionEngine {
       root_cause,
       corrective_heuristic,
       confidence_score,
+      importance_score,
       hit_count: 1,
       domain_tags,
-      created_at: now
+      created_at: now,
+      last_accessed_at: now
     });
 
     return { id: reflectionId, episodeId, reinforced: false };

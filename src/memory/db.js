@@ -25,6 +25,18 @@ class MemoryDatabase {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
     this.db.exec(schemaSql);
+
+    // Gracefully handle column additions for existing databases
+    try {
+      this.db.exec('ALTER TABLE reflections ADD COLUMN importance_score REAL DEFAULT 0.8;');
+    } catch (e) {
+      // Column already exists
+    }
+    try {
+      this.db.exec('ALTER TABLE reflections ADD COLUMN last_accessed_at INTEGER;');
+    } catch (e) {
+      // Column already exists
+    }
   }
 
   insertEpisode({ id, intent, context_summary = '', domain_tags = [], status, created_at = Date.now() }) {
@@ -44,15 +56,17 @@ class MemoryDatabase {
     root_cause,
     corrective_heuristic,
     confidence_score = 1.0,
+    importance_score = 0.8,
     hit_count = 0,
     domain_tags = [],
-    created_at = Date.now()
+    created_at = Date.now(),
+    last_accessed_at = created_at
   }) {
     const stmt = this.db.prepare(`
-      INSERT INTO reflections (id, episode_id, trigger_pattern, failure_mode, root_cause, corrective_heuristic, confidence_score, hit_count, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO reflections (id, episode_id, trigger_pattern, failure_mode, root_cause, corrective_heuristic, confidence_score, importance_score, hit_count, created_at, last_accessed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(id, episode_id, trigger_pattern, failure_mode, root_cause, corrective_heuristic, confidence_score, hit_count, created_at);
+    stmt.run(id, episode_id, trigger_pattern, failure_mode, root_cause, corrective_heuristic, confidence_score, importance_score, hit_count, created_at, last_accessed_at);
 
     // Sync into FTS5
     const ftsStmt = this.db.prepare(`
@@ -62,9 +76,14 @@ class MemoryDatabase {
     ftsStmt.run(id, intent, trigger_pattern, failure_mode, root_cause, corrective_heuristic, domain_tags.join(' '));
   }
 
-  incrementHitCount(reflectionId) {
-    const stmt = this.db.prepare('UPDATE reflections SET hit_count = hit_count + 1 WHERE id = ?');
-    stmt.run(reflectionId);
+  incrementHitCount(reflectionId, timestamp = Date.now()) {
+    const stmt = this.db.prepare('UPDATE reflections SET hit_count = hit_count + 1, last_accessed_at = ? WHERE id = ?');
+    stmt.run(timestamp, reflectionId);
+  }
+
+  updateLastAccessed(reflectionId, timestamp = Date.now()) {
+    const stmt = this.db.prepare('UPDATE reflections SET last_accessed_at = ? WHERE id = ?');
+    stmt.run(timestamp, reflectionId);
   }
 
   close() {

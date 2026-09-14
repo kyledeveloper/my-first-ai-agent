@@ -17,8 +17,10 @@ CREATE TABLE IF NOT EXISTS reflections (
   root_cause TEXT NOT NULL,
   corrective_heuristic TEXT NOT NULL,
   confidence_score REAL DEFAULT 1.0,
+  importance_score REAL DEFAULT 0.8,
   hit_count INTEGER DEFAULT 0,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  last_accessed_at INTEGER
 );
 
 -- FTS5 full-text search table for sub-millisecond keyword & heuristic matching

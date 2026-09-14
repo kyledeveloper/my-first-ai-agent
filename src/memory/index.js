@@ -19,8 +19,8 @@ class LongTermMemory {
   /**
    * Format lessons for direct LLM prompt injection (< 100 tokens typically)
    */
-  formatPrompt(lessons) {
-    return this.retriever.formatForPrompt(lessons);
+  formatPrompt(lessons, options = {}) {
+    return this.retriever.formatForPrompt(lessons, options);
   }
 
   /**
@@ -77,7 +77,7 @@ if (require.main === module) {
     const query = args.slice(1).join(' ');
     console.log(`=== Querying Memory: "${query}" ===`);
     const lessons = mem.query(query);
-    console.log(mem.formatPrompt(lessons) || 'No prior lessons found.');
+    console.log(mem.formatPrompt(lessons, { showScores: true }) || 'No prior lessons found.');
   } else {
     console.log('Usage: node src/memory/index.js [stats|search <query>]');
   }

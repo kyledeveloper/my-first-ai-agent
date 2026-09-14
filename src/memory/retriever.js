@@ -35,32 +35,111 @@ class ExperienceRetriever {
   }
 
   /**
-   * Search for relevant past reflections given a task intent and optional domain tags.
+   * Calculate normalized Relevance Score S_rel in [0, 1]
+   * Combining token overlap, BM25 rank, and domain tags.
    */
-  searchLessons(query, { domainTags = [], limit = 3, autoIncrementHit = false } = {}) {
+  calcRelevanceScore(row, tokens, domainTags = [], bm25Relative = 0.5) {
+    if (!tokens || tokens.length === 0) return 0.5;
+
+    const targetText = [
+      row.intent,
+      row.trigger_pattern,
+      row.failure_mode,
+      row.root_cause,
+      row.corrective_heuristic
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    let matchedCount = 0;
+    for (const t of tokens) {
+      if (targetText.includes(t.toLowerCase())) {
+        matchedCount++;
+      }
+    }
+    const tokenRatio = matchedCount / tokens.length;
+
+    // Check domain tag overlap bonus
+    let tagBonus = 0.0;
+    if (domainTags && domainTags.length > 0 && row.domain_tags) {
+      try {
+        const rowTags = typeof row.domain_tags === 'string' ? JSON.parse(row.domain_tags) : row.domain_tags;
+        const overlap = domainTags.filter(t => Array.isArray(rowTags) && rowTags.includes(t)).length;
+        if (overlap > 0) {
+          tagBonus = Math.min(0.2, overlap * 0.1);
+        }
+      } catch (e) {}
+    }
+
+    // Weighted combination of token coverage, BM25 rank relative position, and tag bonus
+    const rel = (0.6 * tokenRatio) + (0.2 * bm25Relative) + tagBonus;
+    return Math.min(1.0, Math.max(0.05, rel));
+  }
+
+  /**
+   * Calculate Recency Score S_rec in [0, 1] using exponential decay
+   * S_rec = exp(-lambda * delta_t_hours)
+   */
+  calcRecencyScore(row, now = Date.now(), halfLifeHours = 336) {
+    const lastActive = row.last_accessed_at || row.created_at || now;
+    const deltaMs = Math.max(0, now - lastActive);
+    const deltaHours = deltaMs / (3600 * 1000);
+
+    const lambda = Math.LN2 / Math.max(1, halfLifeHours);
+    const rec = Math.exp(-lambda * deltaHours);
+    return Math.min(1.0, Math.max(0.01, rec));
+  }
+
+  /**
+   * Calculate Importance Score S_imp in [0, 1]
+   * S_imp = base_importance * confidence * log_scaled(hit_count)
+   */
+  calcImportanceScore(row) {
+    const baseImp = Math.min(1.0, Math.max(0.1, row.importance_score ?? 0.8));
+    const confidence = Math.min(1.0, Math.max(0.1, row.confidence_score ?? 1.0));
+    const hits = Math.max(0, row.hit_count || 0);
+
+    // Hit count logarithmically boosts importance up to +30%
+    const hitBoost = 0.7 + 0.3 * (Math.log(1 + hits) / Math.log(1 + 10));
+    const imp = baseImp * confidence * hitBoost;
+    return Math.min(1.0, Math.max(0.05, imp));
+  }
+
+  /**
+   * Search for relevant past reflections given a task intent and optional domain tags
+   * using multi-dimensional weighted scoring: Final Score = α * S_rel + β * S_rec + γ * S_imp
+   */
+  searchLessons(query, {
+    domainTags = [],
+    limit = 3,
+    autoIncrementHit = false,
+    weights = { alpha: 0.5, beta: 0.2, gamma: 0.3 },
+    halfLifeHours = 336,
+    now = Date.now()
+  } = {}) {
     const tokens = this.extractTokens(query);
     const ftsQuery = this.sanitizeFtsQuery(query);
-    let results = [];
+    let rawResults = [];
 
     if (ftsQuery) {
       try {
         const sql = `
-          SELECT r.id, r.trigger_pattern, r.failure_mode, r.root_cause, r.corrective_heuristic,
-                 r.confidence_score, r.hit_count, rank
+          SELECT r.id, r.episode_id, r.trigger_pattern, r.failure_mode, r.root_cause, r.corrective_heuristic,
+                 r.confidence_score, r.importance_score, r.hit_count, r.created_at, r.last_accessed_at,
+                 e.intent, e.domain_tags, rank
           FROM experience_fts
           JOIN reflections r ON r.id = experience_fts.reflection_id
+          JOIN episodes e ON e.id = r.episode_id
           WHERE experience_fts MATCH ?
           ORDER BY rank
           LIMIT ?
         `;
-        results = this.db.db.prepare(sql).all(ftsQuery, limit * 2);
+        rawResults = this.db.db.prepare(sql).all(ftsQuery, limit * 4);
       } catch (err) {
-        results = [];
+        rawResults = [];
       }
     }
 
     // Comprehensive LIKE query fallback if FTS has no hits
-    if (results.length === 0 && tokens.length > 0) {
+    if (rawResults.length === 0 && tokens.length > 0) {
       const targetTokens = tokens.slice(0, 5);
       const clauses = targetTokens.map(() => `(
         e.intent LIKE ? OR
@@ -74,11 +153,12 @@ class ExperienceRetriever {
       for (const tok of targetTokens) {
         params.push(`%${tok}%`, `%${tok}%`, `%${tok}%`, `%${tok}%`, `%${tok}%`);
       }
-      params.push(limit);
+      params.push(limit * 4);
 
       const fallbackSql = `
-        SELECT r.id, r.trigger_pattern, r.failure_mode, r.root_cause, r.corrective_heuristic,
-               r.confidence_score, r.hit_count, 0 as rank
+        SELECT r.id, r.episode_id, r.trigger_pattern, r.failure_mode, r.root_cause, r.corrective_heuristic,
+               r.confidence_score, r.importance_score, r.hit_count, r.created_at, r.last_accessed_at,
+               e.intent, e.domain_tags, 0 as rank
         FROM reflections r
         JOIN episodes e ON e.id = r.episode_id
         WHERE ${clauses}
@@ -87,28 +167,62 @@ class ExperienceRetriever {
       `;
 
       try {
-        results = this.db.db.prepare(fallbackSql).all(...params);
+        rawResults = this.db.db.prepare(fallbackSql).all(...params);
       } catch (e) {
-        results = [];
+        rawResults = [];
       }
     }
 
-    // Tag filtering / boosting if domainTags provided
-    const scored = results.map(row => {
-      let boost = 1.0;
-      if (domainTags.length > 0) {
-        const rowEpisode = this.db.db.prepare('SELECT domain_tags FROM episodes WHERE id = (SELECT episode_id FROM reflections WHERE id = ?)').get(row.id);
-        if (rowEpisode && rowEpisode.domain_tags) {
-          try {
-            const tags = JSON.parse(rowEpisode.domain_tags);
-            const overlap = domainTags.filter(t => tags.includes(t)).length;
-            boost += overlap * 0.5;
-          } catch (e) {}
-        }
+    if (rawResults.length === 0) {
+      return [];
+    }
+
+    // Normalize weights so alpha + beta + gamma = 1.0
+    const rawAlpha = Number.isFinite(weights.alpha) ? weights.alpha : 0.5;
+    const rawBeta = Number.isFinite(weights.beta) ? weights.beta : 0.2;
+    const rawGamma = Number.isFinite(weights.gamma) ? weights.gamma : 0.3;
+    const weightSum = (rawAlpha + rawBeta + rawGamma) || 1.0;
+    const alpha = rawAlpha / weightSum;
+    const beta = rawBeta / weightSum;
+    const gamma = rawGamma / weightSum;
+
+    // Calculate relative BM25 rank for candidates
+    const ranks = rawResults.map(r => r.rank || 0);
+    const minRank = Math.min(...ranks);
+    const maxRank = Math.max(...ranks);
+
+    const scored = rawResults.map(row => {
+      let bm25Relative = 0.5;
+      if (minRank !== maxRank) {
+        // More negative rank is better in FTS5 BM25
+        bm25Relative = (maxRank - (row.rank || 0)) / (maxRank - minRank);
+      } else if (ranks.length === 1 && (row.rank || 0) < 0) {
+        bm25Relative = 1.0;
       }
+
+      const sRel = this.calcRelevanceScore(row, tokens, domainTags, bm25Relative);
+      const sRec = this.calcRecencyScore(row, now, halfLifeHours);
+      const sImp = this.calcImportanceScore(row);
+
+      const finalScore = alpha * sRel + beta * sRec + gamma * sImp;
+
       return {
-        ...row,
-        score: (row.confidence_score || 1.0) * boost * (1 + Math.log10((row.hit_count || 1) + 1))
+        id: row.id,
+        episode_id: row.episode_id,
+        intent: row.intent,
+        trigger_pattern: row.trigger_pattern,
+        failure_mode: row.failure_mode,
+        root_cause: row.root_cause,
+        corrective_heuristic: row.corrective_heuristic,
+        confidence_score: row.confidence_score,
+        importance_score: row.importance_score,
+        hit_count: row.hit_count,
+        created_at: row.created_at,
+        last_accessed_at: row.last_accessed_at,
+        score: Number(finalScore.toFixed(4)),
+        relScore: Number(sRel.toFixed(4)),
+        recScore: Number(sRec.toFixed(4)),
+        impScore: Number(sImp.toFixed(4))
       };
     });
 
@@ -117,7 +231,7 @@ class ExperienceRetriever {
 
     if (autoIncrementHit) {
       for (const item of topResults) {
-        this.db.incrementHitCount(item.id);
+        this.db.incrementHitCount(item.id, now);
       }
     }
 
@@ -127,7 +241,7 @@ class ExperienceRetriever {
   /**
    * Format retrieved lessons into high-density, low-token Markdown for prompt injection.
    */
-  formatForPrompt(lessons) {
+  formatForPrompt(lessons, { showScores = false } = {}) {
     if (!lessons || lessons.length === 0) return '';
 
     const lines = [
@@ -136,8 +250,11 @@ class ExperienceRetriever {
     ];
 
     for (const l of lessons) {
+      const scoreBadge = showScores
+        ? ` *(评分: ${l.score} [相关度 ${l.relScore} | 新近度 ${l.recScore} | 重要度 ${l.impScore}])*`
+        : '';
       lines.push(`> • **场景**: ${l.trigger_pattern}`);
-      lines.push(`>   **避坑指南**: ${l.corrective_heuristic} *(根因: ${l.root_cause})*`);
+      lines.push(`>   **避坑指南**: ${l.corrective_heuristic} *(根因: ${l.root_cause})${scoreBadge}*`);
     }
 
     return lines.join('\n');
