@@ -15,3 +15,13 @@
 | **Architecture Visualizations** | **Bilingual Showcase** | Visual architecture artifacts should provide both English and Chinese renders (e.g., `arch-en.html` and `arch-zh.html`) for multi-region audiences. |
 | **Frontend UI Dictionaries** | **Multi-Locale Packs** | Frontend user-facing texts reside in `locales/{locale}/` dictionaries with 100% key synchronization across languages. |
 | **Agent Chat Communication** | **Dynamic Language Match** | In conversational dialogs, strictly match the user's language: reply in Chinese if the user addresses you in Chinese, and reply in English if the user addresses you in English. |
+
+## Test-Driven Development (TDD) & Self-Healing Policy
+- **Red-Green-Refactor Flow**: For any new features or bug fixes, always write the reproducing or boundary test case first in `test/` (Red phase) before writing production logic (Green phase).
+- **Offline Sandbox Execution**: All unit and integration tests run entirely inside the local execution environment without network dependencies, ensuring zero external token consumption on passing tests.
+- **Self-Healing Loop**: If a test fails, capture the error trace, consult `reflexion-memory` for similar known issues, diagnose and repair root causes, and re-verify until 100% passing.
+
+## Pre-Push Security & Code Quality Gatekeeper
+- **Push-Time Gatekeeper Execution**: The security gatekeeper (`.agents/scripts/pre-push-check.js`) is triggered **strictly prior to `git push`** via the `.git/hooks/pre-push` hook or manually via `node .agents/scripts/runner.js pre-push-check`.
+- **Hard Block on Sensitive Secrets**: Any unpushed commit containing hardcoded API keys (e.g., OpenAI, GitHub tokens, AWS keys, private keys) will be hard-blocked (exit code 1) from being pushed to remote repositories.
+- **Dependency & Code Smell Advisories**: Automatically scans for high/critical CVEs via `npm audit` and flags code smell indicators (functions >80 lines, nesting depth >4) before pushing.

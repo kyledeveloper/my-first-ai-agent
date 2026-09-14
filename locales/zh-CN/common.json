@@ -12,5 +12,18 @@
   "cli.audit.discrepancies_found": "⚠️ 发现 {{count}} 处不一致:",
   "cli.audit.file": "  • 文件: {{file}}",
   "cli.audit.missing_keys": "    缺失 Key: {{keys}}",
-  "cli.audit.extra_keys": "    多余 Key: {{keys}}"
+  "cli.audit.extra_keys": "    多余 Key: {{keys}}",
+  "cli.gatekeeper.header": "=== 🛡️ Pre-Push 安全与代码异味守门人 ===",
+  "cli.gatekeeper.scanning_secrets": "🔍 正在扫描待推送增量提交中的硬编码密钥与敏感凭据...",
+  "cli.gatekeeper.secrets_passed": "✅ 未检测到任何硬编码密钥或敏感凭据。",
+  "cli.gatekeeper.secrets_failed": "❌ 严重安全拦截：检测到硬编码密钥！已阻止 Git Push，防止密钥泄露。",
+  "cli.gatekeeper.auditing_deps": "📦 正在对项目依赖项执行安全漏洞审计...",
+  "cli.gatekeeper.deps_passed": "✅ 依赖项漏洞安全审计通过，无高危威胁。",
+  "cli.gatekeeper.deps_warning": "⚠️ 安全警示：发现 {{count}} 个高危/严重漏洞，建议运行 'npm audit fix' 修复。",
+  "cli.gatekeeper.checking_complexity": "🔬 正在巡检代码异味与圈复杂度...",
+  "cli.gatekeeper.complexity_passed": "✅ 代码复杂度与嵌套深度均在健康范围之内。",
+  "cli.gatekeeper.complexity_warning": "⚠️ 发现 {{count}} 个文件存在代码异味或复杂度超标：",
+  "cli.gatekeeper.sensitive_files_failed": "❌ 严重安全拦截：检测到敏感配置文件（.env、私钥文件）！已阻止 Git Push。",
+  "cli.gatekeeper.sensitive_files_passed": "✅ 未发现敏感凭据文件（.env、私钥等）。",
+  "cli.gatekeeper.all_passed": "🎉 所有 Pre-Push 守门人检查通过！可以安全推送到远程仓库。"
 }

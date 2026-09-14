@@ -22,6 +22,34 @@
         "--json"
       ],
       "registeredAt": "2026-09-14T05:01:14.988Z"
+    },
+    "pre-push-check": {
+      "name": "pre-push-check",
+      "description": "Pre-push security & quality gatekeeper: scans secrets, audits dependencies, and flags code smells",
+      "scriptPath": ".agents/scripts/pre-push-check.js",
+      "args": [
+        {
+          "name": "lang",
+          "description": "Output language for CLI messages: en-US | zh-CN (default: auto-detected)",
+          "default": "auto"
+        },
+        {
+          "name": "strict",
+          "description": "Fail (exit 1) on code smell or dependency warnings",
+          "default": false
+        },
+        {
+          "name": "json",
+          "description": "Output gatekeeper report in JSON format",
+          "default": false
+        }
+      ],
+      "examples": [
+        "--lang zh-CN",
+        "--strict",
+        "--json"
+      ],
+      "registeredAt": "2026-09-14T06:22:00.000Z"
     }
   }
 }

@@ -12,5 +12,18 @@
   "cli.audit.discrepancies_found": "⚠️ Found {{count}} discrepancy item(s):",
   "cli.audit.file": "  • File: {{file}}",
   "cli.audit.missing_keys": "    Missing Keys: {{keys}}",
-  "cli.audit.extra_keys": "    Extra Keys: {{keys}}"
+  "cli.audit.extra_keys": "    Extra Keys: {{keys}}",
+  "cli.gatekeeper.header": "=== 🛡️ Pre-Push Security & Code Smell Gatekeeper ===",
+  "cli.gatekeeper.scanning_secrets": "🔍 Scanning outgoing diff for hardcoded secrets and credentials...",
+  "cli.gatekeeper.secrets_passed": "✅ No hardcoded secrets or sensitive credentials detected.",
+  "cli.gatekeeper.secrets_failed": "❌ Hardcoded secrets detected! Pushing is blocked to protect your repository.",
+  "cli.gatekeeper.auditing_deps": "📦 Auditing package dependencies for security vulnerabilities...",
+  "cli.gatekeeper.deps_passed": "✅ Dependency vulnerability audit passed cleanly.",
+  "cli.gatekeeper.deps_warning": "⚠️ Security advisory: Found {{count}} high/critical vulnerability(ies). Run 'npm audit fix'.",
+  "cli.gatekeeper.checking_complexity": "🔬 Checking code smells and cyclomatic complexity...",
+  "cli.gatekeeper.complexity_passed": "✅ Code smell & complexity metrics within acceptable limits.",
+  "cli.gatekeeper.complexity_warning": "⚠️ Code smell detected in {{count}} file(s):",
+  "cli.gatekeeper.sensitive_files_failed": "❌ Sensitive files detected! (.env, private keys). Pushing is blocked.",
+  "cli.gatekeeper.sensitive_files_passed": "✅ No sensitive credential files (.env, private keys) found.",
+  "cli.gatekeeper.all_passed": "🎉 All pre-push checks passed! Ready to push."
 }

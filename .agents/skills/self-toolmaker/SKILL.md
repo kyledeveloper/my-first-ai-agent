@@ -28,6 +28,8 @@ node .agents/scripts/runner.js <tool-name> [options]
 ### Currently Available Project Tools:
 - **`audit-locales`**: Audit and compare keys across locale files (e.g., `zh-CN` vs `en-US`) to detect missing or extra translation keys.
   - Usage: `node .agents/scripts/runner.js audit-locales [--base locales/zh-CN] [--target locales/en-US] [--json]`
+- **`pre-push-check`**: Security & quality gatekeeper running before `git push` to intercept hardcoded secrets, flag high-risk CVEs, and alert on code smell/complexity.
+  - Usage: `node .agents/scripts/runner.js pre-push-check [--lang zh-CN|en-US] [--strict] [--json]`
 
 ---
 

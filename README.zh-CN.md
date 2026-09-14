@@ -23,6 +23,10 @@
    * 支持明暗主题、动态轨迹（Trace Motion）的独立交互式 SVG/HTML 架构全景图。
 5. **分层多语言国际化（`src/i18n.js` & `locales/`）**：
    * 基于 `i18next` 运行时，支持字典 100% 对齐审计、运行时自适应切换与 CLI 工具多语言输出。
+6. **测试驱动与自愈闭环（`tdd-workflow`）**：
+   * 严格贯彻 Red-Green-Refactor 研发准则；新功能与 Bug 修复前必须先编写复现断言测试。沙盒内零外部网络执行，零多余 Token 损耗。
+7. **Pre-Push 安全与代码异味守门人（`pre-push-check`）**：
+   * 严守“仅在 `git push` 前触发”的铁律（通过 `.git/hooks/pre-push` 或 CLI 触发），硬性拦截硬编码 API Key/Token，审计依赖高危漏洞，预警函数过长与过深嵌套。
 
 ---
 
@@ -51,10 +55,9 @@
 
 ## 快速上手
 
-### 1. 运行自动化测试
+### 1. 运行自动化测试套件
 ```bash
-node test/memory.test.js
-node test/toolmaker.test.js
+npm test
 ```
 
 ### 2. 前置检索历史经验（避坑指南）
@@ -66,6 +69,9 @@ node src/memory/index.js search "在沙盒中安装原生模块"
 ```bash
 # 查看所有已沉淀的自造工具清单
 node .agents/scripts/runner.js --list
+
+# 运行 Pre-Push 安全与代码异味守门人巡检
+node .agents/scripts/runner.js pre-push-check
 
 # 执行多语言包 Key 对齐审计工具（自适应终端语言输出）
 node .agents/scripts/runner.js audit-locales

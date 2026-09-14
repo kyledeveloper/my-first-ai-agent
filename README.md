@@ -23,6 +23,10 @@ An autonomous, self-improving AI Agent workspace engineered with **Long-Term Ref
    - Interactive SVG/HTML system topology maps with light/dark themes and animated trace flows.
 5. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
    - Professional `i18next` integration supporting dynamic switching, locale key audit, and adaptive CLI output.
+6. **TDD & Self-Healing Loop (`.agents/skills/tdd-workflow/`)**:
+   - Strict Red-Green-Refactor discipline; failing tests are written first before functional implementation. Runs offline with zero external token overhead.
+7. **Pre-Push Security Gatekeeper (`.agents/scripts/pre-push-check.js`)**:
+   - Automated check executed strictly prior to `git push` (via `.git/hooks/pre-push` or CLI) to intercept hardcoded API keys, audit dependencies, and flag code smell.
 
 ---
 
@@ -53,8 +57,7 @@ An autonomous, self-improving AI Agent workspace engineered with **Long-Term Ref
 
 ### 1. Run Automated Test Suites
 ```bash
-node test/memory.test.js
-node test/toolmaker.test.js
+npm test
 ```
 
 ### 2. Query Long-Term Memory
@@ -66,6 +69,9 @@ node src/memory/index.js search "install sqlite native addons in sandbox"
 ```bash
 # List all synthesized project tools
 node .agents/scripts/runner.js --list
+
+# Run pre-push security & quality gatekeeper
+node .agents/scripts/runner.js pre-push-check
 
 # Run locale audit tool with automatic language adaptation
 node .agents/scripts/runner.js audit-locales
