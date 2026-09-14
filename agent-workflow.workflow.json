@@ -12,7 +12,6 @@
         "label": "Full Lifecycle",
         "focus": [
           "user_intent",
-          "ponytail_ladder",
           "reflexion_memory",
           "blast_radius",
           "tdd_runner",
@@ -26,11 +25,10 @@
         "label": "Perception & Planning",
         "focus": [
           "user_intent",
-          "ponytail_ladder",
           "reflexion_memory",
           "blast_radius"
         ],
-        "note": "Pre-execution intelligence: YAGNI decision ladder, historical lessons retrieval, and AST blast-radius calculation"
+        "note": "Pre-execution intelligence: intent intake, historical lessons retrieval, and AST blast-radius calculation"
       },
       {
         "id": "execution-quality",
@@ -134,7 +132,7 @@
   ],
   "mainPath": [
     "user_intent",
-    "ponytail_ladder",
+    "reflexion_memory",
     "blast_radius",
     "tdd_runner",
     "pre_push_gate",
@@ -155,9 +153,9 @@
       "lane": "intent_lane",
       "col": 1,
       "type": "backend",
-      "label": "Ponytail Filter",
-      "sublabel": "7-rung YAGNI ladder",
-      "tag": "stdlib first",
+      "label": "Ponytail Optimizer",
+      "sublabel": "on-demand YAGNI ladder",
+      "tag": "user requested",
       "width": 120
     },
     {
@@ -259,17 +257,18 @@
   ],
   "edges": [
     {
-      "id": "intent-to-ladder",
+      "id": "intent-to-mem",
       "from": "user_intent",
-      "to": "ponytail_ladder",
-      "variant": "default"
-    },
-    {
-      "id": "ladder-to-mem",
-      "from": "ponytail_ladder",
       "to": "reflexion_memory",
       "label": "query lessons",
       "variant": "emphasis"
+    },
+    {
+      "id": "intent-to-ladder",
+      "from": "user_intent",
+      "to": "ponytail_ladder",
+      "label": "on-demand /ponytail",
+      "variant": "dashed"
     },
     {
       "id": "graph-to-blast",
@@ -279,11 +278,18 @@
       "variant": "default"
     },
     {
+      "id": "mem-to-blast",
+      "from": "reflexion_memory",
+      "to": "blast_radius",
+      "label": "guided scope",
+      "variant": "emphasis"
+    },
+    {
       "id": "ladder-to-blast",
       "from": "ponytail_ladder",
       "to": "blast_radius",
-      "label": "inspect scope",
-      "variant": "default"
+      "label": "slimming plan",
+      "variant": "dashed"
     },
     {
       "id": "blast-to-tdd",
@@ -340,7 +346,7 @@
       "dot": "cyan",
       "title": "Dual Shield Architecture",
       "items": [
-        "Pre-execution: Ponytail YAGNI ladder & AST Blast-Radius analysis",
+        "Pre-execution: Historical lessons recall & AST Blast-Radius analysis (on-demand Ponytail ladder)",
         "Post-execution: TDD offline sandbox verification & Pre-Push Security Gatekeeper"
       ]
     },

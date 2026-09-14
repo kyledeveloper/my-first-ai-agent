@@ -22,7 +22,7 @@
 > **“最稳健、最少 Bug 的代码，是根本无需被写出的代码；把重复交给机器，把确定性留给人类。”**
 
 这些 skill 和本地 CLI 补上宿主 Agent 通常会翻车的五件事：
-1. **极简主义决策心智（[`Ponytail`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：严格遵循 7 阶 YAGNI 阶梯，原生标准库优先、单行优先，从源头剔除冗余代码；
+1. **极简主义决策心智（[`Ponytail`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：按需激活 7 阶 YAGNI 阶梯，原生标准库优先、消除冗余抽象，释放常规架构设计自由度；
 2. **代码感知与影响面雷达（`AST & Blast-Radius`）**：修改前瞬间解析依赖拓扑，预判波及模块并精确圈定受影响测试；
 3. **确定性质检与安全防线（`TDD 沙盒自愈` + `Pre-Push 守门人`）**：本地离线沙盒红绿驱动（0 Token 消耗），Push 前硬性拦截凭证泄露与高危依赖；
 4. **经验沉淀与持续进化（[`Reflexion Memory`](https://arxiv.org/abs/2303.11366) + `Self-Toolmaker`）**：SQLite FTS5 记忆库主动召回历史教训，高频操作（$\ge 3$次）自动合成免依赖 CLI 脚本；
@@ -35,7 +35,7 @@
 ```mermaid
 flowchart TB
     subgraph P1["一、极简决策与心智 (Mindset & Discipline)"]
-        PT["Ponytail 极简哲学<br>(YAGNI / 原生标准库优先 / 单行解决)"]
+        PT["Ponytail 极简优化器<br>(按需触发 YAGNI / 原生标准库优先)"]
         LP["分层多语言工程准则<br>(代码英语 / 文档双语 / 对话自适应)"]
     end
 
@@ -79,8 +79,8 @@ flowchart TB
    * 项目级隔离配置的 `context-mode` MCP 服务，大幅减少工具调用中的输出噪音与 Token 消耗。
 4. **交互式架构可视化（[`archify`](https://github.com/tt-a1i/archify)，作者：tt-a1i）**：
    * 支持明暗主题、动态轨迹（Trace Motion）的独立交互式 SVG/HTML 架构全景图，提供多格式无损导出能力。
-5. **Ponytail 极简编码心智哲学（[`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：
-   * 严格执行 7 阶必要性阶梯（YAGNI、代码库复用、标准库优先、原生特性优先、已装依赖优先、单行优先）。坚决剔除过度抽象，同时严格守牢边界校验、错误处理与安全底线。
+5. **Ponytail 极简编码心智优化器（[`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：
+   * 按需激活的 7 阶必要性阶梯（YAGNI、代码库复用、标准库优先、原生特性优先、已装依赖优先、单行优先）。仅在用户明确要求极简、代码瘦身或消除冗余抽象时介入，坚决不限制常规架构规划与扩展性设计。
 6. **分层多语言国际化（`src/i18n.js` & `locales/`）**：
    * 基于 `i18next` 运行时，支持字典 100% 对齐审计、运行时自适应切换与 CLI 工具多语言输出。
 7. **测试驱动与自愈闭环（`tdd-workflow`）**：

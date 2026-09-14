@@ -22,7 +22,7 @@ Most coding assistants act merely as "smart typists"—often introducing painful
 > **"The cleanest, most reliable code is the code that never had to be written. Hand repetitive friction to machines, and reserve certainty for humans."**
 
 These skills and CLIs cover five jobs the host agent otherwise fumbles:
-1. **Minimalist Decision Mindset ([`Ponytail`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**: Enforces a 7-rung necessity ladder (YAGNI, stdlib & native first) to eliminate bloat.
+1. **Minimalist Decision Mindset ([`Ponytail`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**: On-demand 7-rung necessity ladder (YAGNI, stdlib & native first) to eliminate bloat without constraining architecture.
 2. **Code Awareness Radar (`AST & Blast-Radius`)**: Computes exact downstream callers and affected test suites before modifying code.
 3. **Deterministic Quality & Security (`TDD Sandbox` + `Pre-Push Gatekeeper`)**: Executes Red-Green-Refactor tests in local offline sandboxes (0 token overhead) and hard-blocks secret leaks.
 4. **Lifelong Evolution ([`Reflexion Memory`](https://arxiv.org/abs/2303.11366) + `Self-Toolmaker`)**: Distills post-mortem lessons into SQLite FTS5 memory and synthesizes repetitive commands ($\ge 3$ times) into CLI assets.
@@ -35,7 +35,7 @@ These skills and CLIs cover five jobs the host agent otherwise fumbles:
 ```mermaid
 flowchart TB
     subgraph P1["1. Mindset & Discipline"]
-        PT["Ponytail Minimalist Philosophy<br>(YAGNI / Stdlib & Native First / One-Liners)"]
+        PT["Ponytail Minimalist Optimizer<br>(On-Demand YAGNI / Stdlib & Native First)"]
         LP["Tiered Language Guidelines<br>(English Code & Tests / Bilingual Docs)"]
     end
 
@@ -79,8 +79,8 @@ flowchart TB
    - Scoped project plugin running `context-mode` MCP server to save token consumption on complex tasks.
 4. **Interactive Architecture Visualization ([`archify`](https://github.com/tt-a1i/archify) by tt-a1i)**:
    - Interactive SVG/HTML system topology maps with light/dark themes, animated trace flows, and visual export capabilities.
-5. **Ponytail Minimalist Coding Philosophy ([`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**:
-   - Enforces a 7-rung necessity ladder (YAGNI, codebase reuse, stdlib first, native platform, installed dependencies, one-line solutions). Rejects unrequested abstractions and premature complexity while strictly preserving security, boundary validation, and error handling.
+5. **Ponytail Minimalist Coding Optimizer ([`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**:
+   - On-demand 7-rung necessity ladder (YAGNI, codebase reuse, stdlib first, native platform, installed dependencies, one-line solutions). Activated on explicit user request to eliminate bloat without constraining general architectural freedom.
 6. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
    - Professional `i18next` integration supporting dynamic switching, locale key audit, and adaptive CLI output.
 7. **TDD & Self-Healing Loop (`.agents/skills/tdd-workflow/`)**:

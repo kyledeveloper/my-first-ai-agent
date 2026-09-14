@@ -12,7 +12,6 @@
         "label": "全生命周期闭环",
         "focus": [
           "user_intent",
-          "ponytail_ladder",
           "reflexion_memory",
           "blast_radius",
           "tdd_runner",
@@ -23,14 +22,13 @@
       },
       {
         "id": "perception-planning",
-        "label": "感知与极简决策",
+        "label": "感知与规划分析",
         "focus": [
           "user_intent",
-          "ponytail_ladder",
           "reflexion_memory",
           "blast_radius"
         ],
-        "note": "执行前智能：Ponytail 7阶 YAGNI 决策阶梯、历史反思教训 FTS5 召回与 AST 爆炸半径计算"
+        "note": "执行前智能：需求接收、历史反思教训 FTS5 召回与 AST 爆炸半径计算（支持按需激活 Ponytail 极简阶梯）"
       },
       {
         "id": "execution-quality",
@@ -135,7 +133,7 @@
   ],
   "mainPath": [
     "user_intent",
-    "ponytail_ladder",
+    "reflexion_memory",
     "blast_radius",
     "tdd_runner",
     "pre_push_gate",
@@ -156,9 +154,9 @@
       "lane": "intent_lane",
       "col": 1,
       "type": "backend",
-      "label": "Ponytail 过滤器",
-      "sublabel": "7阶 YAGNI 阶梯",
-      "tag": "原生标准库优先",
+      "label": "Ponytail 优化器",
+      "sublabel": "按需触发 YAGNI 阶梯",
+      "tag": "显式指令激活",
       "width": 120
     },
     {
@@ -260,17 +258,18 @@
   ],
   "edges": [
     {
-      "id": "intent-to-ladder",
+      "id": "intent-to-mem",
       "from": "user_intent",
-      "to": "ponytail_ladder",
-      "variant": "default"
-    },
-    {
-      "id": "ladder-to-mem",
-      "from": "ponytail_ladder",
       "to": "reflexion_memory",
       "label": "检索避坑经验",
       "variant": "emphasis"
+    },
+    {
+      "id": "intent-to-ladder",
+      "from": "user_intent",
+      "to": "ponytail_ladder",
+      "label": "按需触发 /ponytail",
+      "variant": "dashed"
     },
     {
       "id": "graph-to-blast",
@@ -280,11 +279,18 @@
       "variant": "default"
     },
     {
+      "id": "mem-to-blast",
+      "from": "reflexion_memory",
+      "to": "blast_radius",
+      "label": "经验指引范围",
+      "variant": "emphasis"
+    },
+    {
       "id": "ladder-to-blast",
       "from": "ponytail_ladder",
       "to": "blast_radius",
-      "label": "评估修改范围",
-      "variant": "default"
+      "label": "极简重构预案",
+      "variant": "dashed"
     },
     {
       "id": "blast-to-tdd",
@@ -341,7 +347,7 @@
       "dot": "cyan",
       "title": "双重防护网架构",
       "items": [
-        "执行前防线：Ponytail YAGNI 极简阶梯与 AST 爆炸半径影响面评估",
+        "执行前防线：历史教训检索与 AST 爆炸半径影响面评估（按需激活 Ponytail 极简优化）",
         "执行后防线：TDD 离线沙盒自愈闭环与 Pre-Push 密钥/CVE 静态安全门禁"
       ]
     },
