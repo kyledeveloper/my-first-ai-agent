@@ -17,6 +17,7 @@ const { spawnSync } = require('child_process');
 const { LongTermMemory, DEFAULT_DB_PATH } = require('../memory/index');
 const { calculateBlastRadius } = require('../graph/blastRadius');
 const { ToolmakerEngine } = require('../toolmaker/index');
+const { evaluateIntentGate, detectPonytail } = require('./intentGate');
 const i18n = require('../i18n');
 
 const DEFAULT_REGISTRY = path.join(__dirname, '../../.agents/scripts/registry.json');
@@ -108,17 +109,35 @@ class AgentLoop {
   }
 
   /**
-   * Read-only pre-task step: memory + tool suggestions + optional blast-radius.
+   * Read-only pre-task step: grill-me gate, optional Ponytail, memory,
+   * tool suggestions, and optional blast-radius.
    */
-  plan(intent, { target, limit = 3 } = {}) {
+  plan(intent, { target, limit = 3, force = false } = {}) {
     if (!intent || !String(intent).trim()) {
       throw new Error('plan() requires a non-empty intent');
     }
 
+    const text = String(intent).trim();
+    const gate = evaluateIntentGate(text, { target, force });
+    const ponytail = detectPonytail(text);
+
+    if (gate.blocked) {
+      return {
+        intent: text,
+        lessons: [],
+        guidance: '',
+        suggestedTools: [],
+        blastRadius: null,
+        gate,
+        ponytail,
+        blocked: true
+      };
+    }
+
     const memory = this._memory();
-    const lessons = memory.query(String(intent).trim(), { limit });
+    const lessons = memory.query(text, { limit });
     const guidance = memory.formatPrompt(lessons);
-    const suggestedTools = this.suggestTools(intent);
+    const suggestedTools = this.suggestTools(text);
 
     let blastRadius = null;
     if (target) {
@@ -131,7 +150,16 @@ class AgentLoop {
       blastRadius = summarizeBlast(report, this.rootDir);
     }
 
-    return { intent: String(intent).trim(), lessons, guidance, suggestedTools, blastRadius };
+    return {
+      intent: text,
+      lessons,
+      guidance,
+      suggestedTools,
+      blastRadius,
+      gate,
+      ponytail,
+      blocked: false
+    };
   }
 
   /**
@@ -197,9 +225,25 @@ class AgentLoop {
     args = [],
     target = null,
     exec = false,
-    recordOnFailure = false
+    recordOnFailure = false,
+    diagnosis = null,
+    force = false,
+    audit = false,
+    auditor = null
   } = {}) {
-    const planned = this.plan(intent, { target });
+    const planned = this.plan(intent, { target, force });
+
+    if (planned.blocked) {
+      return {
+        ...planned,
+        executed: false,
+        result: null,
+        recorded: null,
+        tracked: null,
+        audit: null,
+        recordSkipped: 'blocked'
+      };
+    }
 
     let chosen = tool;
     if (!chosen && exec && planned.suggestedTools.length === 1) {
@@ -207,12 +251,20 @@ class AgentLoop {
     }
 
     if (!chosen) {
-      return { ...planned, executed: false, result: null, recorded: null };
+      return {
+        ...planned,
+        executed: false,
+        result: null,
+        recorded: null,
+        tracked: null,
+        audit: null
+      };
     }
 
     const result = this.execute(chosen, args);
     let recorded = null;
     let tracked = null;
+    let recordSkipped = null;
 
     if (this.toolmaker && chosen) {
       try {
@@ -227,24 +279,48 @@ class AgentLoop {
     }
 
     if (!result.ok && recordOnFailure) {
-      const errorSignature = String(result.stderr || '')
-        .split('\n')
-        .find(l => l.includes('Error') || l.includes('fail') || l.includes('invalid')) || '';
-      recorded = this.reflect({
-        intent,
-        trigger_pattern: `tool:${chosen}`,
-        failure_mode: String(result.stderr || result.stdout || 'non-zero exit').slice(0, 500),
-        root_cause: errorSignature
-          ? `Tool "${chosen}" failed: ${errorSignature.trim().slice(0, 150)} (status ${result.status})`
-          : `Tool "${chosen}" exited with status ${result.status}`,
-        corrective_heuristic: `Re-run ${chosen} with DEBUG=1, inspect stderr, then call reflect() with a diagnosed root cause before retrying.`,
-        importance_score: 0.2,
-        status: 'failure',
-        domain_tags: ['agent-loop', chosen]
-      });
+      const cause = diagnosis && diagnosis.root_cause;
+      const heuristic = diagnosis && diagnosis.corrective_heuristic;
+      if (!cause || !heuristic) {
+        recordSkipped = 'undiagnosed';
+      } else {
+        recorded = this.reflect({
+          intent,
+          trigger_pattern: diagnosis.trigger_pattern || `tool:${chosen}`,
+          failure_mode: diagnosis.failure_mode || String(result.stderr || result.stdout || 'non-zero exit').slice(0, 500),
+          root_cause: cause,
+          corrective_heuristic: heuristic,
+          importance_score: diagnosis.importance_score || 0.8,
+          status: 'failure',
+          domain_tags: diagnosis.domain_tags || ['agent-loop', chosen]
+        });
+      }
     }
 
-    return { ...planned, executed: true, result, recorded, tracked };
+    let auditReport = null;
+    if (audit) {
+      try {
+        const runner = auditor || this._auditor();
+        auditReport = runner.run();
+      } catch (e) {
+        auditReport = { passed: false, findings: [], error: e.message };
+      }
+    }
+
+    return {
+      ...planned,
+      executed: true,
+      result,
+      recorded,
+      tracked,
+      audit: auditReport,
+      recordSkipped
+    };
+  }
+
+  _auditor() {
+    const { AdversaryAuditor } = require('../../.agents/scripts/adversary-check');
+    return new AdversaryAuditor({ repoRoot: this.rootDir });
   }
 
   close() {
@@ -314,6 +390,24 @@ function printPlan(report, json) {
   console.log(i18n.t('cli.agent.intent', { intent: report.intent }));
   console.log();
 
+  if (report.blocked && report.gate) {
+    console.log(i18n.t('cli.agent.grill_header'));
+    console.log(i18n.t('cli.agent.grill_reason', { reason: report.gate.reason }));
+    for (const q of report.gate.questions || []) {
+      console.log(`  • ${q}`);
+    }
+    console.log(i18n.t('cli.agent.grill_hint'));
+    return;
+  }
+
+  if (report.ponytail && report.ponytail.active) {
+    console.log(i18n.t('cli.agent.ponytail', { intensity: report.ponytail.intensity }));
+    for (const rung of report.ponytail.rungs) {
+      console.log(`  • ${rung}`);
+    }
+    console.log();
+  }
+
   if (report.guidance) {
     console.log(report.guidance);
   } else {
@@ -368,6 +462,10 @@ function printRun(report, json) {
   printPlan(report, false);
   console.log();
   if (!report.executed) {
+    if (report.blocked) {
+      console.log(i18n.t('cli.agent.blocked_exec'));
+      return;
+    }
     console.log(i18n.t('cli.agent.no_exec'));
     return;
   }
@@ -435,9 +533,12 @@ function main() {
         args: passthrough,
         target: args.target || null,
         exec: !!args.exec || !!args.tool,
-        recordOnFailure: !!args['record-failure']
+        recordOnFailure: !!args['record-failure'],
+        force: !!args.force || !!args.clarified,
+        audit: !!args.audit
       });
       printRun(report, json);
+      if (report.blocked) process.exit(2);
       process.exit(report.executed && report.result && !report.result.ok ? report.result.status : 0);
     }
 
@@ -497,7 +598,9 @@ module.exports = {
   AgentLoop,
   DEFAULT_REGISTRY,
   DEFAULT_ROOT,
-  hasUncommittedDiff
+  hasUncommittedDiff,
+  evaluateIntentGate: require('./intentGate').evaluateIntentGate,
+  detectPonytail: require('./intentGate').detectPonytail
 };
 
 if (require.main === module) {

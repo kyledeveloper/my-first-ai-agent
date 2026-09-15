@@ -81,26 +81,39 @@ assert.strictEqual(successRun.result.ok, true);
 assert.strictEqual(successRun.recorded, null, 'successful runs should not write a failure reflection');
 console.log('✓ Test 5 Passed: run() executes the chosen tool and skips reflect on success.');
 
-// Test 6: failed run does not pollute memory unless recordOnFailure is opted in
+// Test 6: failed run does not pollute memory with undiagnosed stubs
 const silentFail = loop.run('always fails for loop tests', { tool: 'fail-tool' });
 assert.strictEqual(silentFail.executed, true);
 assert.strictEqual(silentFail.result.ok, false);
 assert.strictEqual(silentFail.recorded, null, 'stub failures must not be written by default');
 
 const statsBefore = mem.stats();
-const failedRun = loop.run('always fails for loop tests', { tool: 'fail-tool', recordOnFailure: true });
-assert.strictEqual(failedRun.executed, true);
-assert.strictEqual(failedRun.result.ok, false);
-assert.strictEqual(failedRun.result.status, 2);
-assert.ok(failedRun.recorded && failedRun.recorded.id, 'opt-in failure should record a reflection');
+const undiagnosed = loop.run('always fails for loop tests', { tool: 'fail-tool', recordOnFailure: true });
+assert.strictEqual(undiagnosed.executed, true);
+assert.strictEqual(undiagnosed.result.ok, false);
+assert.strictEqual(undiagnosed.recorded, null, 'recordOnFailure without a diagnosis must not write');
+assert.strictEqual(undiagnosed.recordSkipped, 'undiagnosed');
+assert.strictEqual(mem.stats().reflectionCount, statsBefore.reflectionCount);
+
+const failedRun = loop.run('always fails for loop tests', {
+  tool: 'fail-tool',
+  recordOnFailure: true,
+  diagnosis: {
+    trigger_pattern: 'tool:fail-tool',
+    root_cause: 'fail-tool is a fixture that always exits 2',
+    corrective_heuristic: 'Do not retry fail-tool; replace the fixture or assert on status 2'
+  }
+});
+assert.ok(failedRun.recorded && failedRun.recorded.id, 'diagnosed failure should record a reflection');
 assert.strictEqual(failedRun.recorded.reinforced, false);
 assert.strictEqual(mem.stats().reflectionCount, statsBefore.reflectionCount + 1);
 
-const planFail = loop.plan('tool:fail-tool simulated-failure');
+const planFail = loop.plan('tool:fail-tool fixture always exits');
 const failLesson = planFail.lessons.find(l => l.trigger_pattern === 'tool:fail-tool');
-assert.ok(failLesson, 'opt-in recorded failure must be retrievable');
+assert.ok(failLesson, 'diagnosed failure must be retrievable');
+assert.ok(failLesson.corrective_heuristic.includes('replace the fixture'), 'must store the supplied heuristic');
 assert.ok(!failLesson.corrective_heuristic.includes('native addons'), 'must not copy an unrelated prior heuristic');
-console.log('✓ Test 6 Passed: failed execution is written back into reflexion memory only when opted in.');
+console.log('✓ Test 6 Passed: undiagnosed auto-reflect is skipped; diagnosed failures are stored.');
 
 // Test 7: reflect() records an explicit post-mortem and is searchable
 const reflected = loop.reflect({
@@ -205,6 +218,33 @@ assert.strictEqual(trackedRun.tracked.occurrences, 1);
 assert.strictEqual(trackedRun.tracked.candidate.name_slug, 'ok-tool');
 tm.close();
 console.log('✓ Test 13 Passed: Agent loop tracks executed tools for self-toolmaker frequency.');
+
+console.log('Testing grill-me hard-stop blocks execute on macro intents...');
+const grilled = loop.plan('build a social platform');
+assert.strictEqual(grilled.blocked, true);
+assert.strictEqual(grilled.suggestedTools.length, 0);
+assert.strictEqual(grilled.blastRadius, null);
+const grilledRun = loop.run('build a social platform', { tool: 'ok-tool', exec: true });
+assert.strictEqual(grilledRun.executed, false);
+assert.strictEqual(grilledRun.blocked, true);
+assert.strictEqual(grilledRun.recordSkipped, 'blocked');
+const forcedRun = loop.run('build a social platform', { tool: 'ok-tool', exec: true, force: true });
+assert.strictEqual(forcedRun.executed, true);
+assert.strictEqual(forcedRun.result.ok, true);
+console.log('✓ Test 14 Passed: Macro intents hard-stop execute; --force resumes after clarification.');
+
+console.log('Testing ponytail attaches to plan without blocking...');
+const ponyPlan = loop.plan('ponytail yagni slim the locale audit');
+assert.strictEqual(ponyPlan.blocked, false, 'ponytail + concrete audit must not grill');
+assert.strictEqual(ponyPlan.ponytail.active, true);
+assert.ok(ponyPlan.ponytail.rungs.length > 0);
+console.log('✓ Test 15 Passed: Ponytail is on-demand and does not replace the grill gate.');
+
+console.log('Testing optional adversary audit on run()...');
+const fakeAuditor = { run: () => ({ passed: true, findings: [] }) };
+const audited = loop.run('audit locale keys', { tool: 'ok-tool', exec: true, audit: true, auditor: fakeAuditor });
+assert.ok(audited.audit && audited.audit.passed === true);
+console.log('✓ Test 16 Passed: run({ audit: true }) attaches an adversary report without inventing one.');
 
 console.log('\nAll Unified Agent Loop tests passed successfully! 🎉');
 } finally {
