@@ -7,11 +7,10 @@
 </p>
 
 <p align="center">
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-%E2%89%A522.5.0-339933?logo=node.js&logoColor=white" alt="Node Version" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" /></a>
-  <a href="test/"><img src="https://img.shields.io/badge/Tests-100%25%20Hermetic%20Passing-success" alt="Tests" /></a>
-  <a href=".agents/skills/"><img src="https://img.shields.io/badge/Architecture-5--Pillar%20Autonomous-blueviolet" alt="Architecture" /></a>
-  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Documentation-简体中文-orange" alt="Chinese Documentation" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" height="20" /></a>
+  <a href="test/"><img src="https://img.shields.io/badge/Tests-100%25%20Hermetic%20Passing-success.svg" alt="Tests" height="20" /></a>
+  <a href=".agents/skills/"><img src="https://img.shields.io/badge/Architecture-5--Pillar%20Autonomous-blueviolet.svg" alt="Architecture" height="20" /></a>
+  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Documentation-简体中文-orange.svg" alt="Chinese Documentation" height="20" /></a>
 </p>
 
 <p align="center">

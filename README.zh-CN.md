@@ -7,11 +7,10 @@
 </p>
 
 <p align="center">
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-%E2%89%A522.5.0-339933?logo=node.js&logoColor=white" alt="Node 版本" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="开源协议" /></a>
-  <a href="test/"><img src="https://img.shields.io/badge/Tests-100%25%20%E7%A6%BB%E7%BA%BF%E6%B2%99%E7%9B%92%E9%80%9A%E8%BF%87-success" alt="测试状态" /></a>
-  <a href=".agents/skills/"><img src="https://img.shields.io/badge/%E6%9E%B6%E6%9E%84-%E4%BA%94%E5%A4%A7%E5%B7%A5%E7%A8%8B%E6%94%AF%E6%9F%B1-blueviolet" alt="架构支柱" /></a>
-  <a href="README.md"><img src="https://img.shields.io/badge/Documentation-English-blue" alt="English Documentation" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="开源协议" height="20" /></a>
+  <a href="test/"><img src="https://img.shields.io/badge/Tests-100%25%20%E7%A6%BB%E7%BA%BF%E6%B2%99%E7%9B%92%E9%80%9A%E8%BF%87-success.svg" alt="测试状态" height="20" /></a>
+  <a href=".agents/skills/"><img src="https://img.shields.io/badge/%E6%9E%B6%E6%9E%84-%E4%BA%94%E5%A4%A7%E5%B7%A5%E7%A8%8B%E6%94%AF%E6%9F%B1-blueviolet.svg" alt="架构支柱" height="20" /></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Documentation-English-blue.svg" alt="English Documentation" height="20" /></a>
 </p>
 
 <p align="center">
