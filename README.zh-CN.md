@@ -75,24 +75,36 @@ flowchart TB
 2. **动态自造工具系统（`src/toolmaker/` & `.agents/scripts/`）**：
    * 自动嗅探高频重复执行的操作与意图指纹，当频次达到 $\ge 3$ 次时自动提炼并合成规范的 Node.js CLI 工具。
    * 统一资产分发器：`node .agents/scripts/runner.js <tool-name> [args]`。
-3. **上下文优化（`.agents/plugins/context-mode`）**：
-   * 项目级隔离配置的 `context-mode` MCP 服务，大幅减少工具调用中的输出噪音与 Token 消耗。
-4. **交互式架构可视化（[`archify`](https://github.com/tt-a1i/archify)，作者：tt-a1i）**：
+3. **交互式架构可视化（[`archify`](https://github.com/tt-a1i/archify)，作者：tt-a1i）**：
    * 支持明暗主题、动态轨迹（Trace Motion）的独立交互式 SVG/HTML 架构全景图，提供多格式无损导出能力。
-5. **Ponytail 极简编码心智优化器（[`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：
+4. **Ponytail 极简编码心智优化器（[`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail)，作者：Dietrich Gebert）**：
    * 按需激活的 7 阶必要性阶梯（YAGNI、代码库复用、标准库优先、原生特性优先、已装依赖优先、单行优先）。仅在用户明确要求极简、代码瘦身或消除冗余抽象时介入，坚决不限制常规架构规划与扩展性设计。
-6. **分层多语言国际化（`src/i18n.js` & `locales/`）**：
+5. **分层多语言国际化（`src/i18n.js` & `locales/`）**：
    * 基于 `i18next` 运行时，支持字典 100% 对齐审计、运行时自适应切换与 CLI 工具多语言输出。
-7. **测试驱动与自愈闭环（`tdd-workflow`）**：
+6. **测试驱动与自愈闭环（`tdd-workflow`）**：
    * 严格贯彻 Red-Green-Refactor 研发准则；新功能与 Bug 修复前必须先编写复现断言测试。沙盒内零外部网络执行，零多余 Token 损耗。
-8. **Pre-Push 安全与代码异味守门人（`pre-push-check`）**：
+7. **Pre-Push 安全与代码异味守门人（`pre-push-check`）**：
    * 严守“仅在 `git push` 前触发”的铁律（通过 `.git/hooks/pre-push` 或 CLI 触发），硬性拦截硬编码 API Key/Token，审计依赖高危漏洞，预警函数过长与过深嵌套。
-9. **深度代码符号图谱与修改影响面分析（`src/graph/` & `blast-radius.js`）**：
+8. **深度代码符号图谱与修改影响面分析（`src/graph/` & `blast-radius.js`）**：
    * 基于 Acorn 的 AST 符号依赖图谱（需先 `npm install` 安装 `acorn` + `acorn-walk`）。精准量化直接与间接波及模块（爆炸半径），自动圈定受影响测试套件，并生成防崩重构预案。
-10. **大词与模糊意图反向澄清准则（`AGENTS.md`）**：
+9. **大词与模糊意图反向澄清准则（`AGENTS.md`）**：
     * 严格拦截“做一个商城/博客/社交平台”等宏观大词并实施编码熔断；通过 `/grill-me` 与 `ask_question` 交互式苏格拉底追问确立确定性 MVP 边界，复杂逻辑先出 `archify` 流程图给用户签署确认后再开启 TDD 编码。
-11. **统一 Agent Loop（`src/agent/`）**：
-    * 把五大支柱串成一条流水线：`plan` 检索反思记忆并建议自造工具；`run` 执行注册工具并把非零退出写回记忆；`reflect` 写入诊断后的经验。
+10. **统一 Agent Loop（`src/agent/`）**：
+    * 核心流水线：`plan` 检索反思记忆并建议自造工具；`run` 执行注册工具；`reflect` 写入诊断后的经验。改 `src/` 前宿主必须先 `plan --target`。
+11. **对抗式代码审查（`.agents/skills/adversarial-review/` & `adversary-check.js`）**：
+    * 红蓝双阶段冷眼审查：事务、测试隔离、正则边界、仓库卫生。
+
+---
+
+## 可选：context-mode MCP
+
+**不是**核心循环的一部分。只在 **Antigravity、Cursor、Claude Code** 里，会话很长、工具输出很大（浏览器快照、issue 列表、日志）时再开。不要把它当成第三套记忆：教训仍归 reflexion，重构仍归 blast-radius。
+
+**不要**写进 `npm install`（否则每个 clone 都会带上 `better-sqlite3`）。宿主按需启动，配置见 [`.agents/plugins/context-mode/mcp_config.json`](.agents/plugins/context-mode/mcp_config.json)：
+
+```bash
+npx -y context-mode
+```
 
 ---
 
@@ -101,7 +113,7 @@ flowchart TB
 ```text
 .
 ├── .agents/
-│   ├── plugins/context-mode/       # 项目私有 MCP 插件配置
+│   ├── plugins/context-mode/       # 可选 MCP：长会话 / 重工具输出
 │   ├── scripts/                    # 沉淀的自造 CLI 脚本资产 (runner.js, audit-locales.js, blast-radius.js)
 │   └── skills/                     # Agent 专属技能库 (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, tdd-workflow, code-graph)
 ├── locales/                        # 多语言字典资源包 (en-US, zh-CN)

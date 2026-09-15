@@ -75,26 +75,36 @@ flowchart TB
 2. **Dynamic Self-Toolmaker (`src/toolmaker/` & `.agents/scripts/`)**:
    - Tracks recurring command patterns; automatically synthesizes robust Node.js CLI tools when an operation is performed $\ge 3$ times.
    - Unified dispatcher: `node .agents/scripts/runner.js <tool-name> [args]`.
-3. **Context Optimization (`.agents/plugins/context-mode`)**:
-   - Scoped project plugin running `context-mode` MCP server to save token consumption on complex tasks.
-4. **Interactive Architecture Visualization ([`archify`](https://github.com/tt-a1i/archify) by tt-a1i)**:
+3. **Interactive Architecture Visualization ([`archify`](https://github.com/tt-a1i/archify) by tt-a1i)**:
    - Interactive SVG/HTML system topology maps with light/dark themes, animated trace flows, and visual export capabilities.
-5. **Ponytail Minimalist Coding Optimizer ([`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**:
+4. **Ponytail Minimalist Coding Optimizer ([`.agents/skills/ponytail/`](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert)**:
    - On-demand 7-rung necessity ladder (YAGNI, codebase reuse, stdlib first, native platform, installed dependencies, one-line solutions). Activated on explicit user request to eliminate bloat without constraining general architectural freedom.
-6. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
+5. **Tiered Internationalization (`src/i18n.js` & `locales/`)**:
    - Professional `i18next` integration supporting dynamic switching, locale key audit, and adaptive CLI output.
-7. **TDD & Self-Healing Loop (`.agents/skills/tdd-workflow/`)**:
+6. **TDD & Self-Healing Loop (`.agents/skills/tdd-workflow/`)**:
    - Strict Red-Green-Refactor discipline; failing tests are written first before functional implementation. Runs offline with zero external token overhead.
-8. **Pre-Push Security Gatekeeper (`.agents/scripts/pre-push-check.js`)**:
+7. **Pre-Push Security Gatekeeper (`.agents/scripts/pre-push-check.js`)**:
    - Automated check executed strictly prior to `git push` (via `.git/hooks/pre-push` or CLI) to intercept hardcoded API keys, audit dependencies, and flag code smell.
-9. **Code Symbol Graph & Blast-Radius Analysis (`src/graph/` & `blast-radius.js`)**:
+8. **Code Symbol Graph & Blast-Radius Analysis (`src/graph/` & `blast-radius.js`)**:
    - Acorn AST and symbol dependency graph (requires `npm install` for `acorn` + `acorn-walk`). Calculates direct/indirect impact scopes, flags affected test suites, and generates actionable pre-refactoring safety plans.
-10. **Ambiguous Intent Clarification Policy (`AGENTS.md`)**:
+9. **Ambiguous Intent Clarification Policy (`AGENTS.md`)**:
     - Intercepts macro, unbounded vision terms ("make an e-commerce mall") with a hard coding stop; conducts interactive Socratic interviews (`/grill-me` & `ask_question`) to establish deterministic MVP boundaries, paired with `archify` visual diagrams for user sign-off prior to TDD.
-11. **Unified Agent Loop (`src/agent/`)**:
-    - Single pipeline that actually uses the pillars: `plan` retrieves reflexion memory and suggests synthesized tools; `run` executes a registry tool and writes non-zero exits back into memory; `reflect` stores a diagnosed post-mortem.
-12. **Adversarial Code Review (`.agents/skills/adversarial-review/` & `adversary-check.js`)**:
+10. **Unified Agent Loop (`src/agent/`)**:
+    - Single pipeline: `plan` retrieves reflexion memory and suggests synthesized tools; `run` executes a registry tool; `reflect` stores a diagnosed post-mortem. Hosts must `plan --target` before editing `src/`.
+11. **Adversarial Code Review (`.agents/skills/adversarial-review/` & `adversary-check.js`)**:
     - Red-blue dual-agent protocol enforcing cold-eye, independent review across ACID transactions, hermetic test isolation in `os.tmpdir()`, false-positive boundary defenses, and VCS hygiene before committing.
+
+---
+
+## Optional: context-mode MCP
+
+Not part of the core loop. Enable it in **Antigravity, Cursor, or Claude Code** when a session is long and tools dump large payloads (browser snapshots, issue lists, logs). Do not treat it as a third memory system — reflexion still owns lessons; blast-radius still owns refactors.
+
+It is **not** an `npm install` dependency (that would pull `better-sqlite3` into every clone). The host starts it on demand via [`.agents/plugins/context-mode/mcp_config.json`](.agents/plugins/context-mode/mcp_config.json):
+
+```bash
+npx -y context-mode
+```
 
 ---
 
@@ -103,7 +113,7 @@ flowchart TB
 ```text
 .
 ├── .agents/
-│   ├── plugins/context-mode/       # Project-isolated MCP server configuration
+│   ├── plugins/context-mode/       # Optional MCP: long sessions / heavy tool output
 │   ├── scripts/                    # Synthesized CLI tool assets (runner.js, audit-locales.js, blast-radius.js)
 │   └── skills/                     # Agent behavioral skills (agent-loop, archify, ponytail, reflexion-memory, self-toolmaker, i18n, code-graph)
 ├── locales/                        # Internationalization locale packs (en-US, zh-CN)
