@@ -1187,4 +1187,78 @@ try {
   fs.rmSync(semUnknownDir, { recursive: true, force: true });
 }
 
-console.log('\nAll 40 Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');
+console.log('Testing semantic COMPATIBLE does not hide a wide blast radius...');
+const wideCompatDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sem-wide-compat-'));
+try {
+  fs.writeFileSync(
+    path.join(wideCompatDir, 'core.js'),
+    'function query(sql, extra = 1) { return sql; }\nmodule.exports = { query };\n',
+    'utf8'
+  );
+  for (let i = 0; i < 3; i++) {
+    fs.writeFileSync(
+      path.join(wideCompatDir, `caller${i}.js`),
+      `const { query } = require('./core');\nquery('select ${i}');\nmodule.exports = { c${i}: true };\n`,
+      'utf8'
+    );
+  }
+  const wideGraph = new SymbolGraph({ rootDir: wideCompatDir });
+  wideGraph.build();
+  const wideDiff = `
+--- a/core.js
++++ b/core.js
+@@ -1,3 +1,3 @@
+-function query(sql) {
++function query(sql, extra = 1) {
+`;
+  const wideTopo = calculateBlastRadius(path.join(wideCompatDir, 'core.js'), {
+    graph: wideGraph,
+    rootDir: wideCompatDir
+  });
+  assert.ok(wideTopo.directCount >= 3, 'fixture must have a wide fan-out');
+  const wideSemantic = calculateBlastRadius(path.join(wideCompatDir, 'core.js'), {
+    graph: wideGraph,
+    diff: wideDiff,
+    diffAware: true,
+    semantic: true,
+    rootDir: wideCompatDir
+  });
+  assert.strictEqual(wideSemantic.semanticAnalysis.overallVerdict, 'COMPATIBLE');
+  assert.strictEqual(wideSemantic.riskLevel, wideTopo.riskLevel, 'COMPATIBLE must not collapse a wide topology score to LOW');
+  assert.ok(wideSemantic.notes.includes('[SEMANTIC: COMPATIBLE]'));
+  console.log('✓ Test 41 Passed: Compatible signature on a wide fan-out keeps topology risk.');
+} finally {
+  fs.rmSync(wideCompatDir, { recursive: true, force: true });
+}
+
+console.log('Testing symbol callers ignore unrelated local namesakes...');
+const namesakeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'symbol-namesake-'));
+try {
+  fs.mkdirSync(path.join(namesakeDir, 'src'));
+  fs.writeFileSync(
+    path.join(namesakeDir, 'src', 'auth.js'),
+    'function login(user) { return user; }\nmodule.exports = { login };\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(namesakeDir, 'src', 'unrelated.js'),
+    'function login(item) { return item.id; }\nlogin({ id: 1 });\nmodule.exports = { login };\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(namesakeDir, 'src', 'app.js'),
+    'const { login } = require("./auth");\nlogin("a");\nmodule.exports = { app: true };\n',
+    'utf8'
+  );
+  const nsGraph = new SymbolGraph({ rootDir: namesakeDir });
+  nsGraph.build();
+  const callers = nsGraph.findSymbolCallers('login');
+  const rel = callers.map(f => path.relative(namesakeDir, f).replace(/\\/g, '/'));
+  assert.ok(rel.includes('src/app.js'), 'real importer must be a caller');
+  assert.ok(!rel.includes('src/unrelated.js'), 'local namesake without importing auth.js must not be a caller');
+  console.log('✓ Test 42 Passed: findSymbolCallers requires an import binding, not a matching identifier.');
+} finally {
+  fs.rmSync(namesakeDir, { recursive: true, force: true });
+}
+
+console.log('\nAll Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');

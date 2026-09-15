@@ -1,6 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
+
+const TOOL_NAME_RE = /^[a-zA-Z][a-zA-Z0-9_-]{0,62}$/;
+
+function assertSafeToolName(name) {
+  if (!name || !TOOL_NAME_RE.test(String(name))) {
+    throw new Error(
+      `Invalid tool name "${name}". Use a letter followed by letters, digits, underscore or hyphen (max 63 chars).`
+    );
+  }
+}
 
 class ToolSynthesizer {
   constructor(registry, tracker) {
@@ -23,9 +33,14 @@ class ToolSynthesizer {
     if (!name || !description || !codeBody) {
       throw new Error('Missing required fields for tool synthesis (name, description, codeBody)');
     }
+    assertSafeToolName(name);
 
     const scriptFileName = `${name}.js`;
-    const targetScriptPath = path.join(this.scriptsDir, scriptFileName);
+    const scriptsDir = path.resolve(this.scriptsDir);
+    const targetScriptPath = path.resolve(scriptsDir, scriptFileName);
+    if (path.dirname(targetScriptPath) !== scriptsDir) {
+      throw new Error('Refusing to write synthesized tool outside the scripts directory');
+    }
 
     // Build standard script content
     const scriptContent = `#!/usr/bin/env node
@@ -144,13 +159,16 @@ run();
   }
 
   validateSyntax(scriptPath) {
-    try {
-      execSync(`node -c "${scriptPath}"`, { stdio: 'pipe' });
-      return true;
-    } catch (err) {
-      throw new Error(`Synthesized script failed syntax validation: ${err.message}`);
+    const res = spawnSync(process.execPath, ['-c', scriptPath], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    if (res.status !== 0) {
+      const detail = (res.stderr || res.stdout || res.error?.message || 'syntax error').trim();
+      throw new Error(`Synthesized script failed syntax validation: ${detail}`);
     }
+    return true;
   }
 }
 
-module.exports = { ToolSynthesizer };
+module.exports = { ToolSynthesizer, assertSafeToolName, TOOL_NAME_RE };

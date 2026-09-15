@@ -16,7 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const i18n = require(path.resolve(__dirname, '../../src/i18n'));
 
 // Secret matching patterns
@@ -103,6 +103,7 @@ function scanSecrets(text) {
       return;
     }
 
+    let regexHit = false;
     for (const pattern of SECRET_PATTERNS) {
       if (pattern.regex.test(contentToScan)) {
         findings.push({
@@ -110,7 +111,11 @@ function scanSecrets(text) {
           line: contentToScan.length > 80 ? contentToScan.slice(0, 77) + '...' : contentToScan,
           lineNumber: idx + 1
         });
+        regexHit = true;
       }
+    }
+    if (!regexHit) {
+      scanLineForEntropy(contentToScan, idx + 1, findings);
     }
   });
 
@@ -118,6 +123,49 @@ function scanSecrets(text) {
     hasSecrets: findings.length > 0,
     findings
   };
+}
+
+/**
+ * Shannon entropy in bits/char for a token.
+ */
+function shannonEntropy(token) {
+  if (!token) return 0;
+  const freq = new Map();
+  for (const ch of token) freq.set(ch, (freq.get(ch) || 0) + 1);
+  let h = 0;
+  const n = token.length;
+  for (const count of freq.values()) {
+    const p = count / n;
+    h -= p * Math.log2(p);
+  }
+  return h;
+}
+
+/**
+ * High-entropy credential-like token: long, mixed charset, not a hex blob.
+ */
+function isHighEntropySecret(token) {
+  if (!token || token.length < 32 || token.length > 256) return false;
+  if (!/^[A-Za-z0-9+/=_\-]+$/.test(token)) return false;
+  if (/^[0-9a-fA-F]+$/.test(token)) return false;
+  const classes = [/[a-z]/.test(token), /[A-Z]/.test(token), /[0-9]/.test(token), /[+/=_\-]/.test(token)]
+    .filter(Boolean).length;
+  if (classes < 3) return false;
+  return shannonEntropy(token) >= 4.5;
+}
+
+function scanLineForEntropy(contentToScan, lineNumber, findings) {
+  const tokens = contentToScan.match(/[A-Za-z0-9+/=_\-]{32,256}/g) || [];
+  for (const token of tokens) {
+    if (isHighEntropySecret(token)) {
+      findings.push({
+        type: 'High-entropy secret',
+        line: contentToScan.length > 80 ? contentToScan.slice(0, 77) + '...' : contentToScan,
+        lineNumber
+      });
+      return;
+    }
+  }
 }
 
 /**
@@ -145,57 +193,41 @@ function checkSensitiveFiles(fileList) {
   };
 }
 
-// Control flow block starter regex
-const CONTROL_FLOW_REGEX = new RegExp(
-  '(?:' +
-    'if\\s*\\(.*?\\)|' +
-    'for\\s*\\(.*?\\)|' +
-    'while\\s*\\(.*?\\)|' +
-    'switch\\s*\\(.*?\\)|' +
-    'try|' +
-    'catch\\s*\\(.*?\\)|' +
-    'else|' +
-    '(?:async\\s+)?function\\b.*?|' +
-    '=>' +
-  ')\\s*\\{'
-);
+// Control flow that increases cyclomatic nesting (not function/else/try wrappers)
+const CONTROL_FLOW_REGEX = /(?:if|for|while|switch|catch)\s*\(/;
 
 /**
  * Analyze code smell & cyclomatic complexity in JavaScript/TypeScript file content.
- * Tracks control flow nesting (if, for, while, switch, try, catch) and function lengths,
- * correctly ignoring object literals and stripping string literals/comments.
- * @param {string} content - File source code.
- * @param {string} filename - Filename for reporting.
- * @returns {{ file: string, warnings: Array<{ type: string, message: string, line: number }> }}
+ * Tracks if/for/while/switch/catch nesting and function lengths with a function stack
+ * so nested functions do not close their parent early.
  */
 function analyzeComplexity(content, filename) {
   const warnings = [];
   if (!content || typeof content !== 'string') return { file: filename, warnings };
 
   const lines = content.split('\n');
+  let braceDepth = 0;
   let controlFlowDepth = 0;
-  let currentFunc = null;
-  let funcStartLine = 0;
-  let funcDepth = 0;
+  const funcStack = [];
 
   lines.forEach((line, index) => {
     const lineNum = index + 1;
     const trimmed = line.trim();
 
-    // Strip strings, regex literals, and inline comments to prevent distortion
     const cleanLine = trimmed
       .replace(/\/\*.*?\*\/|\/\/.*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g, ' ')
       .replace(/\/(?![*\/])(?:\\.|[^\/\\\n])+\/[gimuy]*/g, ' ');
 
-    const funcMatch = cleanLine.match(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|(?:async\s+)?([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*\{)/);
-    if (funcMatch && !currentFunc) {
-      currentFunc = funcMatch[1] || funcMatch[2] || funcMatch[3] || 'anonymous';
-      funcStartLine = lineNum;
-      funcDepth = controlFlowDepth;
+    const funcMatch = cleanLine.match(/(?:function\s+([a-zA-Z0-9_$]+)|(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[a-zA-Z0-9_$]+)\s*=>|(?:async\s+)?([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*\{)/);
+    if (funcMatch) {
+      funcStack.push({
+        name: funcMatch[1] || funcMatch[2] || funcMatch[3] || 'anonymous',
+        startLine: lineNum,
+        startDepth: braceDepth
+      });
     }
 
-    const isCFStart = CONTROL_FLOW_REGEX.test(cleanLine);
-    if (isCFStart) {
+    if (CONTROL_FLOW_REGEX.test(cleanLine)) {
       controlFlowDepth++;
       const isDuplicate = warnings.some(w => w.type === 'DEEP_NESTING' && Math.abs(w.line - lineNum) < 3);
       if (controlFlowDepth > 4 && !isDuplicate) {
@@ -207,19 +239,23 @@ function analyzeComplexity(content, filename) {
       }
     }
 
+    const openCount = (cleanLine.match(/\{/g) || []).length;
     const closeCount = (cleanLine.match(/\}/g) || []).length;
+    braceDepth += openCount;
+
     for (let i = 0; i < closeCount; i++) {
+      braceDepth = Math.max(0, braceDepth - 1);
       if (controlFlowDepth > 0) controlFlowDepth--;
-      if (currentFunc && controlFlowDepth <= funcDepth) {
-        const funcLength = lineNum - funcStartLine;
+      while (funcStack.length && braceDepth <= funcStack[funcStack.length - 1].startDepth) {
+        const fn = funcStack.pop();
+        const funcLength = lineNum - fn.startLine;
         if (funcLength > 80) {
           warnings.push({
             type: 'LONG_FUNCTION',
-            message: `Function "${currentFunc}" exceeds length limit (${funcLength} lines > 80 lines)`,
-            line: funcStartLine
+            message: `Function "${fn.name}" exceeds length limit (${funcLength} lines > 80 lines)`,
+            line: fn.startLine
           });
         }
-        currentFunc = null;
       }
     }
   });
@@ -234,20 +270,23 @@ function analyzeComplexity(content, filename) {
 function auditDependencies() {
   const packageJsonPath = path.resolve(process.cwd(), 'package.json');
   if (!fs.existsSync(packageJsonPath)) {
-    return { audited: false, high: 0, critical: 0, total: 0 };
+    return { audited: false, high: 0, critical: 0, total: 0, error: 'package.json not found' };
+  }
+
+  const res = spawnSync('npm', ['audit', '--json'], {
+    encoding: 'utf8',
+    timeout: 15000,
+    cwd: process.cwd()
+  });
+
+  if (res.error) {
+    return { audited: false, high: 0, critical: 0, total: 0, error: res.error.message };
+  }
+  if (!res.stdout || !String(res.stdout).trim()) {
+    return { audited: false, high: 0, critical: 0, total: 0, error: 'empty npm audit output' };
   }
 
   try {
-    const res = spawnSync('npm', ['audit', '--json'], {
-      encoding: 'utf8',
-      timeout: 5000,
-      cwd: process.cwd()
-    });
-
-    if (!res.stdout) {
-      return { audited: true, high: 0, critical: 0, total: 0 };
-    }
-
     const auditData = JSON.parse(res.stdout);
     const vuln = auditData.metadata?.vulnerabilities || {};
     const high = vuln.high || 0;
@@ -256,41 +295,60 @@ function auditDependencies() {
 
     return { audited: true, high, critical, total };
   } catch (e) {
-    return { audited: false, high: 0, critical: 0, total: 0 };
+    return { audited: false, high: 0, critical: 0, total: 0, error: 'unparseable npm audit JSON' };
   }
 }
 
+const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+function gitCapture(args, cwd) {
+  const res = spawnSync('git', args, {
+    encoding: 'utf8',
+    cwd,
+    timeout: 10000,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  if (res.error || res.status !== 0) return null;
+  return (res.stdout || '').trim();
+}
+
+function gitOk(args, cwd) {
+  const res = spawnSync('git', args, {
+    cwd,
+    timeout: 10000,
+    stdio: ['ignore', 'ignore', 'ignore']
+  });
+  return !res.error && res.status === 0;
+}
+
 /**
- * Resolve Git repository root and outgoing diff range.
+ * Resolve Git repository root and outgoing diff args (argv array, never a shell string).
  */
 function resolveGitContext() {
   let repoRoot = process.cwd();
-  try {
-    repoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
-  } catch {}
+  const top = gitCapture(['rev-parse', '--show-toplevel'], repoRoot);
+  if (top) repoRoot = top;
 
-  let range = '';
-  // Try origin/main
-  try {
-    execSync('git rev-parse --verify origin/main', { stdio: 'ignore' });
-    range = 'origin/main...HEAD';
-  } catch {
-    // Try upstream branch
-    try {
-      const upstream = execSync('git rev-parse --abbrev-ref @{u}', { encoding: 'utf8' }).trim();
-      range = `${upstream}...HEAD`;
-    } catch {
-      // Fallback to recent local commit or cached diff
-      try {
-        execSync('git rev-parse --verify HEAD~1', { stdio: 'ignore' });
-        range = 'HEAD~1..HEAD';
-      } catch {
-        range = '--cached';
-      }
+  const upstream = gitCapture(['rev-parse', '--abbrev-ref', '@{u}'], repoRoot);
+  if (upstream) {
+    return { repoRoot, diffArgs: [`${upstream}...HEAD`] };
+  }
+
+  for (const ref of ['origin/HEAD', 'origin/main', 'origin/master']) {
+    if (gitOk(['rev-parse', '--verify', ref], repoRoot)) {
+      return { repoRoot, diffArgs: [`${ref}...HEAD`] };
     }
   }
 
-  return { repoRoot, range };
+  const remotes = gitCapture(['rev-parse', '--abbrev-ref', '--remotes'], repoRoot);
+  if (remotes) {
+    const first = remotes.split('\n').map(s => s.trim()).find(Boolean);
+    if (first) {
+      return { repoRoot, diffArgs: [`${first}...HEAD`] };
+    }
+  }
+
+  return { repoRoot, diffArgs: [EMPTY_TREE, 'HEAD'] };
 }
 
 /**
@@ -300,28 +358,19 @@ function getOutgoingDiff(options = {}) {
   if (options.scanText) {
     return options.scanText;
   }
-  const { range } = resolveGitContext();
-  try {
-    return execSync(`git diff ${range}`, { encoding: 'utf8' });
-  } catch {
-    return '';
-  }
+  const { repoRoot, diffArgs } = resolveGitContext();
+  const out = gitCapture(['diff', ...diffArgs], repoRoot);
+  return out || '';
 }
 
 /**
  * Get list of outgoing changed file paths.
  */
 function getOutgoingFiles() {
-  const { repoRoot, range } = resolveGitContext();
-  try {
-    const list = execSync(`git diff --name-only ${range}`, { encoding: 'utf8' })
-      .split('\n')
-      .map(f => f.trim())
-      .filter(Boolean);
-    return list.map(f => path.resolve(repoRoot, f));
-  } catch {
-    return [];
-  }
+  const { repoRoot, diffArgs } = resolveGitContext();
+  const list = gitCapture(['diff', '--name-only', ...diffArgs], repoRoot);
+  if (!list) return [];
+  return list.split('\n').map(f => f.trim()).filter(Boolean).map(f => path.resolve(repoRoot, f));
 }
 
 /**
@@ -451,6 +500,8 @@ Options:
       } else {
         console.log(i18n.t('cli.gatekeeper.deps_passed'));
       }
+    } else {
+      console.warn(`⚠️  npm audit did not complete (${depResult.error || 'unknown error'}). Dependency scan is inconclusive.`);
     }
 
     // Print Code Smell Result
@@ -470,7 +521,12 @@ Options:
     process.exit(1);
   }
 
-  if (args.strict && (depResult.high > 0 || depResult.critical > 0 || codeSmellReports.length > 0)) {
+  if (args.strict && (
+    depResult.high > 0 ||
+    depResult.critical > 0 ||
+    codeSmellReports.length > 0 ||
+    !depResult.audited
+  )) {
     process.exit(1);
   }
 
@@ -493,5 +549,7 @@ module.exports = {
   getOutgoingDiff,
   getOutgoingFiles,
   resolveGitContext,
+  shannonEntropy,
+  isHighEntropySecret,
   run
 };

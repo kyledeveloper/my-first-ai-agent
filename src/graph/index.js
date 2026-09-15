@@ -196,14 +196,30 @@ class SymbolGraph {
    * @returns {string[]}
    */
   findSymbolCallers(symbolName) {
+    const decls = this.findSymbol(symbolName);
+    const declFiles = new Set(decls.map(d => path.resolve(d.filePath)));
     const callers = [];
-    for (const [filePath, node] of this.fileNodes.entries()) {
-      // Check call sites or member calls
-      const hasCall = node.callSites.some(cs => cs === symbolName || cs.endsWith('.' + symbolName));
-      // Check imports
-      const hasImport = node.imports.some(imp => (imp.named && imp.named.includes(symbolName)) || imp.defaultName === symbolName);
 
-      if (hasCall || hasImport) {
+    for (const [filePath, node] of this.fileNodes.entries()) {
+      const importsSymbolFromDecl = (node.imports || []).some(imp => {
+        const namedHit = Array.isArray(imp.named) && imp.named.includes(symbolName);
+        const defaultHit = imp.defaultName === symbolName;
+        if (!namedHit && !defaultHit) return false;
+        if (!imp.resolvedPath || declFiles.size === 0) return namedHit || defaultHit;
+        return declFiles.has(path.resolve(imp.resolvedPath));
+      });
+
+      const qualifiedFromDecl = (node.callSites || []).some(cs => {
+        if (!cs.endsWith('.' + symbolName)) return false;
+        const ns = cs.slice(0, cs.length - symbolName.length - 1);
+        return (node.imports || []).some(imp => {
+          if (imp.defaultName !== ns) return false;
+          if (!imp.resolvedPath || declFiles.size === 0) return true;
+          return declFiles.has(path.resolve(imp.resolvedPath));
+        });
+      });
+
+      if (importsSymbolFromDecl || qualifiedFromDecl) {
         callers.push(filePath);
       }
     }

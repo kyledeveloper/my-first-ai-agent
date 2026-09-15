@@ -5,6 +5,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { LongTermMemory } = require('../src/memory/index');
 const { AgentLoop } = require('../src/agent/index');
+const { ToolmakerEngine } = require('../src/toolmaker/index');
 
 console.log('Running Unified Agent Loop Unit Tests...');
 
@@ -190,7 +191,22 @@ assert.ok(cliZh.stdout.includes('=== Agent Loop：计划 ==='), 'human CLI must 
 assert.ok(cliZh.stdout.includes('没有与该意图匹配的既有反思经验'));
 console.log('✓ Test 12 Passed: Agent CLI human output uses src/i18n.js.');
 
-console.log('\nAll 12 Unified Agent Loop tests passed successfully! 🎉');
+console.log('Testing run() tracks tool usage on the Toolmaker when injected...');
+const tm = new ToolmakerEngine({ dbOrPath: ':memory:', registryPath });
+const trackingLoop = new AgentLoop({
+  memory: mem,
+  registryPath,
+  rootDir: tmp,
+  toolmaker: tm
+});
+const trackedRun = trackingLoop.run('audit locale keys', { tool: 'ok-tool', exec: true });
+assert.ok(trackedRun.tracked, 'execute path should record a toolmaker pattern');
+assert.strictEqual(trackedRun.tracked.occurrences, 1);
+assert.strictEqual(trackedRun.tracked.candidate.name_slug, 'ok-tool');
+tm.close();
+console.log('✓ Test 13 Passed: Agent loop tracks executed tools for self-toolmaker frequency.');
+
+console.log('\nAll Unified Agent Loop tests passed successfully! 🎉');
 } finally {
   if (mem) mem.close();
   fs.rmSync(tmp, { recursive: true, force: true });

@@ -12,8 +12,13 @@ const DEFAULT_REPO_ROOT = path.resolve(__dirname, '../../');
 
 function installHooks(options = {}) {
   const repoRoot = path.resolve(options.repoRoot || DEFAULT_REPO_ROOT);
-  const gitHooksDir = path.join(repoRoot, '.git', 'hooks');
+  const gitDir = path.join(repoRoot, '.git');
+  const gitHooksDir = path.join(gitDir, 'hooks');
   const prePushHookPath = path.join(gitHooksDir, 'pre-push');
+
+  if (!fs.existsSync(gitDir)) {
+    throw new Error(`Not a git repository: ${repoRoot} (missing .git). Refusing to create a fake .git/hooks tree.`);
+  }
 
   if (!fs.existsSync(gitHooksDir)) {
     fs.mkdirSync(gitHooksDir, { recursive: true });

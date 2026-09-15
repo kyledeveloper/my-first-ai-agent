@@ -105,7 +105,26 @@ const brokenPath = path.join(tmpDir, 'broken-tool.js');
 assert.strictEqual(fs.existsSync(brokenPath), false, 'Failed tool script must be unlinked and not leave orphan files');
 console.log('✓ Test 6 Passed: Syntax validation failure cleanly rolls back with zero orphan files.');
 
-console.log('\nAll 6 Self-Toolmaker tests passed successfully! 🎉');
+console.log('Testing ToolSynthesizer rejects path-traversal and unsafe names...');
+assert.throws(() => {
+  toolmaker.synthesizeTool({
+    name: '../../evil',
+    description: 'should not write outside scripts dir',
+    codeBody: 'console.log(1);'
+  });
+}, /Invalid tool name/);
+assert.throws(() => {
+  toolmaker.synthesizeTool({
+    name: 'foo";touch',
+    description: 'should not reach node -c via a shell',
+    codeBody: 'console.log(1);'
+  });
+}, /Invalid tool name/);
+const escaped = path.join(tmpDir, '..', '..', 'evil.js');
+assert.strictEqual(fs.existsSync(escaped), false, 'path-traversal name must not write a sibling script');
+console.log('✓ Test 7 Passed: Unsafe tool names are rejected before any file is written.');
+
+console.log('\nAll Self-Toolmaker tests passed successfully! 🎉');
 } finally {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }

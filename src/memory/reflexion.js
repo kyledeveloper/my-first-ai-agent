@@ -34,14 +34,38 @@ class ReflexionEngine {
     `).get(trigger_pattern);
 
     if (existing) {
-      // Reinforce existing reflection
-      this.db.db.prepare(`
-        UPDATE reflections
-        SET hit_count = hit_count + 1,
-            confidence_score = MIN(1.0, confidence_score + 0.1),
-            last_accessed_at = ?
-        WHERE id = ?
-      `).run(now, existing.id);
+      // Reinforce existing reflection and refresh the diagnosis (do not freeze a stale heuristic).
+      this.db.transaction(() => {
+        this.db.db.prepare(`
+          UPDATE reflections
+          SET hit_count = hit_count + 1,
+              confidence_score = MIN(1.0, confidence_score + 0.1),
+              last_accessed_at = ?,
+              failure_mode = ?,
+              root_cause = ?,
+              corrective_heuristic = ?
+          WHERE id = ?
+        `).run(now, failure_mode, root_cause, corrective_heuristic, existing.id);
+
+        this.db.db.prepare(`
+          UPDATE experience_fts
+          SET intent = ?,
+              trigger_pattern = ?,
+              failure_mode = ?,
+              root_cause = ?,
+              corrective_heuristic = ?,
+              domain_tags = ?
+          WHERE reflection_id = ?
+        `).run(
+          intent,
+          trigger_pattern,
+          failure_mode,
+          root_cause,
+          corrective_heuristic,
+          (domain_tags || []).join(' '),
+          existing.id
+        );
+      });
       return { id: existing.id, reinforced: true };
     }
 

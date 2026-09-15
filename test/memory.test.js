@@ -58,6 +58,22 @@ assert.strictEqual(resOtherTrigger.reinforced, false, 'Different trigger_pattern
 assert.strictEqual(mem.stats().reflectionCount, 2, 'Distinct triggers should create a second reflection');
 console.log('✓ Test 3b Passed: Dedup keys on trigger_pattern only, not heuristic text.');
 
+// Test 3c: Reinforcing the same trigger refreshes the stored diagnosis
+const resUpdated = mem.recordExperience({
+  intent: 'Retry npm install context-mode with a better post-mortem',
+  domain_tags: ['npm', 'native-build'],
+  status: 'recovered',
+  trigger_pattern: 'npm install context-mode or better-sqlite3',
+  failure_mode: 'EPERM node-gyp',
+  root_cause: 'Sandbox still blocks node-gyp; use the runtime sqlite binding',
+  corrective_heuristic: 'Use node:sqlite DatabaseSync instead of compiling better-sqlite3'
+});
+assert.strictEqual(resUpdated.reinforced, true, 'Same trigger must still dedup');
+assert.strictEqual(mem.stats().reflectionCount, 2, 'Diagnosis refresh must not insert a third row');
+const refreshed = mem.query('npm install better-sqlite3 error');
+assert.ok(refreshed[0].corrective_heuristic.includes('node:sqlite'), 'FTS and row must carry the latest heuristic');
+console.log('✓ Test 3c Passed: Reinforcement updates root cause and heuristic instead of freezing the first diagnosis.');
+
 // Test 4: Full-text search retrieval (FTS5)
 const queryResults = mem.query('npm install better-sqlite3 error');
 assert.ok(queryResults.length > 0, 'Should find matching lesson by keywords');
@@ -70,10 +86,20 @@ assert.ok(formattedPrompt.includes('Historical Reflexion Guidance'), 'Formatted 
 assert.ok(formattedPrompt.includes('Heuristic Advice'), 'Formatted prompt should contain heuristic advice');
 console.log('✓ Test 5 Passed: Prompt formatting produces high-density markdown.');
 
-// Test 6: Rule promotion candidate check
+// Test 6: Rule promotion counts failure recurrences, not retrieval hits
+const hitBeforeQuery = mem.db.db.prepare('SELECT hit_count FROM reflections WHERE id = ?').get(res1.id).hit_count;
 for (let i = 0; i < 3; i++) {
   mem.query('better-sqlite3', { autoIncrementHit: true });
 }
+const hitAfterQuery = mem.db.db.prepare('SELECT hit_count FROM reflections WHERE id = ?').get(res1.id).hit_count;
+assert.strictEqual(hitAfterQuery, hitBeforeQuery, 'autoIncrementHit must not treat recall as a failure recurrence');
+
+mem.recordExperience({
+  intent: 'Third recurrence of native sqlite install failure',
+  trigger_pattern: 'npm install context-mode or better-sqlite3',
+  root_cause: 'Sandbox still blocks node-gyp; use the runtime sqlite binding',
+  corrective_heuristic: 'Use node:sqlite DatabaseSync instead of compiling better-sqlite3'
+});
 const candidates = mem.getCandidateRules(3);
 assert.ok(candidates.length > 0, 'Should have candidate rules when hit_count >= 3');
 assert.ok(candidates[0].ruleText.includes('Bypass count:'), 'Rule text should format English metadata');
@@ -199,5 +225,5 @@ console.log('✓ Test 14 Passed: Anti-pollution filter prevents unrelated prompt
 
 freshMem.close();
 mem.close();
-console.log('\nAll 14 Long-Term Memory tests passed successfully! 🎉');
+console.log('\nAll Long-Term Memory tests passed successfully! 🎉');
 

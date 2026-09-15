@@ -79,8 +79,12 @@ class AdversaryAuditor {
 
       // 2. Check for multi-table database write operations missing transaction (only in production code)
       if (isSrc) {
-        const hasMultipleInserts = (content.match(/\.prepare\(['"]\s*INSERT INTO/gi) || []).length > 1;
-        const hasTransaction = /transaction\s*\(/i.test(content);
+        const added = content
+          .split('\n')
+          .filter(l => l.startsWith('+') && !l.startsWith('+++'))
+          .join('\n');
+        const hasMultipleInserts = (added.match(/\.prepare\(['"]\s*INSERT INTO/gi) || []).length > 1;
+        const hasTransaction = /transaction\s*\(/i.test(added);
         if (hasMultipleInserts && !hasTransaction) {
           findings.push({
             severity: 'WARNING',

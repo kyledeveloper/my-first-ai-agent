@@ -166,4 +166,72 @@ assert.strictEqual(sensitiveFilesResult.hasSensitiveFiles, true);
 assert.strictEqual(sensitiveFilesResult.findings.length, 5); // .env, .env.local, .env.production, server.key, id_rsa (excludes .env.example)
 console.log('✓ Test 9 Passed: Sensitive files (.env, key, id_rsa) correctly detected while .env.example allowed.');
 
-console.log('\nAll 10 Pre-Push Gatekeeper tests passed successfully! 🎉');
+console.log('Testing Shannon entropy scanning...');
+const highEntropyToken = 'n8QvL2wXk9Zm4RtY7pHs1BcD6gAj3UfE';
+assert.ok(gatekeeper.isHighEntropySecret(highEntropyToken), 'mixed high-entropy token must be flagged');
+assert.strictEqual(gatekeeper.isHighEntropySecret('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), false, 'low-entropy repeats must not flag');
+assert.strictEqual(gatekeeper.isHighEntropySecret('0123456789abcdef0123456789abcdef01234567'), false, 'hex blobs must not flag as secrets');
+const entropyHit = gatekeeper.scanSecrets(`+ const token = "${highEntropyToken}";`);
+assert.strictEqual(entropyHit.hasSecrets, true, 'high-entropy assignment must block');
+assert.ok(entropyHit.findings.some(f => f.type === 'High-entropy secret'));
+console.log('✓ Test 10 Passed: Shannon entropy scanner flags mixed high-entropy tokens and ignores hex/repeats.');
+
+console.log('Testing nested functions do not close the outer function early...');
+const nestedLong = `
+function outerLong() {
+  function innerTiny() {
+    return 1;
+  }
+${Array.from({ length: 90 }, (_, i) => `  const step${i} = ${i};`).join('\n')}
+  return innerTiny();
+}
+`;
+const nestedSmell = gatekeeper.analyzeComplexity(nestedLong, 'nestedLong.js');
+assert.ok(nestedSmell.warnings.some(w => w.type === 'LONG_FUNCTION' && w.message.includes('outerLong')), 'outer function length must still be measured past the inner function');
+console.log('✓ Test 11 Passed: Nested functions do not truncate outer LONG_FUNCTION tracking.');
+
+console.log('Testing hook installer refuses to fabricate .git...');
+const notARepo = fs.mkdtempSync(path.join(os.tmpdir(), 'no-git-'));
+try {
+  assert.throws(() => installHooks({ repoRoot: notARepo }), /Not a git repository/);
+  assert.strictEqual(fs.existsSync(path.join(notARepo, '.git')), false, 'must not create a fake .git directory');
+  console.log('✓ Test 12 Passed: Hook installer does not fabricate .git outside a repository.');
+} finally {
+  fs.rmSync(notARepo, { recursive: true, force: true });
+}
+
+console.log('Testing outgoing diff scans the full unpushed history without remotes...');
+const rangeRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-push-range-'));
+try {
+  const git = (args) => spawnSync('git', args, { cwd: rangeRepo, encoding: 'utf8' });
+  assert.strictEqual(git(['init']).status, 0);
+  git(['config', 'user.email', 'test@example.com']);
+  git(['config', 'user.name', 'Test']);
+  fs.writeFileSync(path.join(rangeRepo, 'a.js'), `const first = "${highEntropyToken}";\n`);
+  git(['add', '.']);
+  assert.strictEqual(git(['commit', '-m', 'one']).status, 0);
+  fs.writeFileSync(path.join(rangeRepo, 'b.js'), 'const second = 2;\n');
+  git(['add', '.']);
+  assert.strictEqual(git(['commit', '-m', 'two']).status, 0);
+  fs.writeFileSync(path.join(rangeRepo, 'c.js'), 'const third = 3;\n');
+  git(['add', '.']);
+  assert.strictEqual(git(['commit', '-m', 'three']).status, 0);
+
+  const origCwd = process.cwd();
+  process.chdir(rangeRepo);
+  try {
+    const ctx = gatekeeper.resolveGitContext();
+    assert.ok(Array.isArray(ctx.diffArgs) && ctx.diffArgs.length >= 1, 'diff args must be an argv array');
+    assert.ok(!ctx.diffArgs.includes('HEAD~1..HEAD') && ctx.diffArgs.join(' ') !== 'HEAD~1..HEAD');
+    const outgoing = gatekeeper.getOutgoingDiff();
+    assert.ok(outgoing.includes(highEntropyToken), 'first-commit secret must still be in the unpushed scan');
+    assert.ok(outgoing.includes('third') || outgoing.includes('b.js') || outgoing.includes('second'), 'later commits must be included');
+  } finally {
+    process.chdir(origCwd);
+  }
+  console.log('✓ Test 13 Passed: No-remote fallback scans full local history, not only HEAD~1.');
+} finally {
+  fs.rmSync(rangeRepo, { recursive: true, force: true });
+}
+
+console.log('\nAll Pre-Push Gatekeeper tests passed successfully! 🎉');

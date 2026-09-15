@@ -245,8 +245,7 @@ class ExperienceRetriever {
 
     if (autoIncrementHit) {
       for (const item of topResults) {
-        this.db.incrementHitCount(item.id, now);
-        item.hit_count = (item.hit_count || 0) + 1;
+        this.db.updateLastAccessed(item.id, now);
         item.last_accessed_at = now;
       }
     }

@@ -84,5 +84,34 @@ assert.ok(!/HEAD~1/.test(worktreeDiff));
 fs.rmSync(advRepo, { recursive: true, force: true });
 console.log('✓ Test 6 Passed: Default adversary diff is git diff HEAD (working tree), not HEAD~1..HEAD.');
 
-console.log('\nAll 6 Adversarial Auditor tests passed successfully! 🎉');
+console.log('Testing ACID check ignores unchanged INSERT context...');
+const contextInsertsDiff = `
+diff --git a/src/memory/db.js b/src/memory/db.js
+--- a/src/memory/db.js
++++ b/src/memory/db.js
+@@ -40,8 +40,9 @@
+     const stmt = this.db.prepare('INSERT INTO episodes (id) VALUES (?)');
+     const other = this.db.prepare('INSERT INTO reflections (id) VALUES (?)');
++    const comment = 'touching a file that already has two inserts';
+`;
+const r7 = auditor.auditDiff(contextInsertsDiff);
+assert.strictEqual(
+  r7.findings.some(f => f.lens === 'ACID Transaction Completeness'),
+  false,
+  'context INSERT lines must not trigger the ACID warning'
+);
+
+const addedInsertsDiff = `
+diff --git a/src/memory/db.js b/src/memory/db.js
+--- a/src/memory/db.js
++++ b/src/memory/db.js
+@@ -1,2 +1,4 @@
++    const stmt = this.db.prepare('INSERT INTO episodes (id) VALUES (?)');
++    const other = this.db.prepare('INSERT INTO reflections (id) VALUES (?)');
+`;
+const r8 = auditor.auditDiff(addedInsertsDiff);
+assert.ok(r8.findings.some(f => f.lens === 'ACID Transaction Completeness'), 'two added INSERTs without transaction() must warn');
+console.log('✓ Test 7 Passed: ACID check only inspects added lines, not hunk context.');
+
+console.log('\nAll Adversarial Auditor tests passed successfully! 🎉');
 

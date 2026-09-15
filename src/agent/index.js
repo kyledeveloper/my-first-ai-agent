@@ -16,6 +16,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { LongTermMemory, DEFAULT_DB_PATH } = require('../memory/index');
 const { calculateBlastRadius } = require('../graph/blastRadius');
+const { ToolmakerEngine } = require('../toolmaker/index');
 const i18n = require('../i18n');
 
 const DEFAULT_REGISTRY = path.join(__dirname, '../../.agents/scripts/registry.json');
@@ -62,6 +63,7 @@ class AgentLoop {
     this.memory = options.memory || null;
     this.ownsMemory = !options.memory;
     this.toolmaker = options.toolmaker || null;
+    this.ownsToolmaker = Boolean(options.ownsToolmaker);
   }
 
   _memory() {
@@ -210,6 +212,19 @@ class AgentLoop {
 
     const result = this.execute(chosen, args);
     let recorded = null;
+    let tracked = null;
+
+    if (this.toolmaker && chosen) {
+      try {
+        tracked = this.toolmaker.track({
+          nameSlug: chosen,
+          intentSummary: String(intent || chosen).trim(),
+          commandTemplate: `node ${path.relative(this.rootDir, result.scriptPath || chosen)}`
+        });
+      } catch (e) {
+        tracked = null;
+      }
+    }
 
     if (!result.ok && recordOnFailure) {
       const errorSignature = String(result.stderr || '')
@@ -222,19 +237,24 @@ class AgentLoop {
         root_cause: errorSignature
           ? `Tool "${chosen}" failed: ${errorSignature.trim().slice(0, 150)} (status ${result.status})`
           : `Tool "${chosen}" exited with status ${result.status}`,
-        corrective_heuristic: `Inspect stderr for ${chosen} and record a diagnosed lesson with reflect(); this auto-record is not a root-cause analysis.`,
+        corrective_heuristic: `Re-run ${chosen} with DEBUG=1, inspect stderr, then call reflect() with a diagnosed root cause before retrying.`,
+        importance_score: 0.2,
         status: 'failure',
         domain_tags: ['agent-loop', chosen]
       });
     }
 
-    return { ...planned, executed: true, result, recorded };
+    return { ...planned, executed: true, result, recorded, tracked };
   }
 
   close() {
     if (this.ownsMemory && this.memory) {
       this.memory.close();
       this.memory = null;
+    }
+    if (this.ownsToolmaker && this.toolmaker) {
+      this.toolmaker.close();
+      this.toolmaker = null;
     }
   }
 }
@@ -361,10 +381,20 @@ function printRun(report, json) {
 }
 
 function createLoopFromArgs(args) {
+  const dbPath = args.db || DEFAULT_DB_PATH;
+  const registryPath = args.registry || DEFAULT_REGISTRY;
+  let toolmaker = null;
+  let ownsToolmaker = false;
+  if (dbPath !== ':memory:') {
+    toolmaker = new ToolmakerEngine({ dbOrPath: dbPath, registryPath });
+    ownsToolmaker = true;
+  }
   return new AgentLoop({
     rootDir: args.root || DEFAULT_ROOT,
-    registryPath: args.registry || DEFAULT_REGISTRY,
-    dbPath: args.db
+    registryPath,
+    dbPath,
+    toolmaker,
+    ownsToolmaker
   });
 }
 

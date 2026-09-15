@@ -535,10 +535,16 @@ function applySemanticRiskAdjustment(baseReport, semanticReport) {
       }
     }
   } else if (semanticReport.overallVerdict === 'COMPATIBLE' && semanticReport.evaluations.length > 0) {
-    baseReport.riskLevel = 'LOW';
-    baseReport.riskScore = Math.min(20, Math.floor(baseReport.riskScore * 0.3));
-    baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
-      '[SEMANTIC: COMPATIBLE] All downstream call sites are semantically compatible.';
+    const wideFanout = baseReport.directCount >= 3 || baseReport.testCount >= 2 || baseReport.riskScore >= 70;
+    if (wideFanout) {
+      baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
+        '[SEMANTIC: COMPATIBLE] Signature is compatible; topology risk is unchanged because the change still fans out to many callers.';
+    } else {
+      baseReport.riskLevel = 'LOW';
+      baseReport.riskScore = Math.min(20, Math.floor(baseReport.riskScore * 0.3));
+      baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
+        '[SEMANTIC: COMPATIBLE] All downstream call sites are semantically compatible.';
+    }
   } else if (semanticReport.overallVerdict === 'UNKNOWN') {
     baseReport.notes = (baseReport.notes ? baseReport.notes + ' ' : '') +
       '[SEMANTIC: UNKNOWN] Signatures could not be compared; topology risk is unchanged.';
