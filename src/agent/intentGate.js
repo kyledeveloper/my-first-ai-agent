@@ -4,21 +4,21 @@
  */
 
 const MACRO_PRODUCT_EN =
-  /\b(platform|ecosystem|saas|mvp|dashboard|portal|website|web\s*app|mobile\s*app|ai\s*app|social\s*(network|app))\b/i;
-const MACRO_PRODUCT_ZH = /操作系统|平台|生态|官网|门户|社交网络/;
+  /\b(platform|saas|dashboard|portal|website|web\s*app|mobile\s*app|ai\s*app|social\s*(network|app))\b/i;
+const MACRO_PRODUCT_ZH = /操作系统|平台|官网|门户|社交网络/;
 
 const BUILD_MACRO_EN =
-  /(?:^|\s)(?:please\s+)?(?:make|build|create|develop|write|design|ship)\b[\s\S]{0,80}\b(app|application|platform|system|website|site|product)\b/i;
-const BUILD_MACRO_ZH = /(?:帮我|做一个|写一个|开发|打造)[\s\S]{0,40}(平台|系统|应用|网站|官网|产品|app)/;
+  /(?:^|\s)(?:please\s+)?(?:make|build|create|develop|design)\b[\s\S]{0,80}\b(app|application|platform|system|website|site)\b/i;
+const BUILD_MACRO_ZH = /(?:帮我|做一个|写一个|开发|打造)[\s\S]{0,40}(平台|系统|应用|网站|官网|app)/;
 
 const CONCRETE_MARKER =
-  /(?:^|[\s/])(?:src|test|tests|lib|app|scripts)\/|\S+\.(?:js|ts|mjs|cjs|jsx|tsx|json|md|sql)\b/i;
+  /(?:^|[\s/])(?:src|test|tests|lib|scripts)\/|\S+\.(?:js|ts|mjs|cjs|jsx|tsx)\b/i;
 
 const CONCRETE_VERB =
   /\b(install|audit|refactor|test|commit|fix|scan|query|seed|search|reflect|track|synthesize|parse|index|clone|lint|format|patch|revert|merge|diff|debug|trace|profile|benchmark)\b|安装|审计|重构|测试|修复|扫描|检索|克隆/i;
 
 const PONYTAIL_RE =
-  /\b(ponytail|yagni|be lazy|lazy mode|simplest solution|minimal solution|do less|shortest path)\b|精简|最简方案|不要过度设计/i;
+  /\b(ponytail|yagni|lazy mode)\b|\/ponytail|精简|最简方案|不要过度设计/i;
 
 const PONYTAIL_RUNGS = [
   'Does this need to exist at all? (YAGNI)',
@@ -55,10 +55,16 @@ function grillQuestions(intent) {
   ];
 }
 
+function isMacroRequest(text) {
+  return BUILD_MACRO_EN.test(text) || BUILD_MACRO_ZH.test(text)
+    || MACRO_PRODUCT_EN.test(text) || MACRO_PRODUCT_ZH.test(text);
+}
+
 /**
- * Hard-stop coding when the intent is a macro product request without a file/target.
+ * Hard-stop coding when the intent is a macro product request.
+ * --target is blast-radius only; it does not clarify the spec. Use --force after grill-me.
  */
-function evaluateIntentGate(intent, { target = null, force = false } = {}) {
+function evaluateIntentGate(intent, { force = false } = {}) {
   const text = normalizeIntent(intent);
   if (force) {
     return { blocked: false, reason: 'forced', questions: [], gate: null };
@@ -71,16 +77,13 @@ function evaluateIntentGate(intent, { target = null, force = false } = {}) {
       gate: 'grill-me'
     };
   }
-  if (target) {
-    return { blocked: false, reason: 'has-target', questions: [], gate: null };
-  }
   if (CONCRETE_MARKER.test(text)) {
     return { blocked: false, reason: 'has-path', questions: [], gate: null };
   }
   if (CONCRETE_VERB.test(text) && !BUILD_MACRO_EN.test(text) && !BUILD_MACRO_ZH.test(text)) {
     return { blocked: false, reason: 'concrete-verb', questions: [], gate: null };
   }
-  if (BUILD_MACRO_EN.test(text) || BUILD_MACRO_ZH.test(text) || MACRO_PRODUCT_EN.test(text) || MACRO_PRODUCT_ZH.test(text)) {
+  if (isMacroRequest(text)) {
     return {
       blocked: true,
       reason: 'ambiguous-macro',

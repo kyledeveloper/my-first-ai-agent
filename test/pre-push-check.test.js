@@ -234,4 +234,44 @@ try {
   fs.rmSync(rangeRepo, { recursive: true, force: true });
 }
 
+console.log('Testing object braces do not hide nested control flow...');
+const objectInsideIfs = `
+function f() {
+  if (a) {
+    const o = { x: 1 };
+    if (b) {
+      if (c) {
+        if (d) {
+          if (e) {
+            return 1;
+          }
+        }
+      }
+    }
+  }
+}
+`;
+const objectSmell = gatekeeper.analyzeComplexity(objectInsideIfs, 'object-if.js');
+assert.ok(
+  objectSmell.warnings.some(w => w.type === 'DEEP_NESTING'),
+  'five nested ifs with an object literal must still warn DEEP_NESTING'
+);
+
+const elseIfChain = `
+function g() {
+  if (a) { return 1; }
+  else if (b) { return 2; }
+  else if (c) { return 3; }
+  else if (d) { return 4; }
+  else if (e) { return 5; }
+  else if (f) { return 6; }
+}
+`;
+const elseIfSmell = gatekeeper.analyzeComplexity(elseIfChain, 'elseif.js');
+assert.ok(
+  !elseIfSmell.warnings.some(w => w.type === 'DEEP_NESTING'),
+  'a flat else-if chain must not be treated as deep nesting'
+);
+console.log('✓ Test 14 Passed: Control-flow depth ignores object braces and else-if chains.');
+
 console.log('\nAll Pre-Push Gatekeeper tests passed successfully! 🎉');

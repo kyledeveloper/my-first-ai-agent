@@ -1261,4 +1261,34 @@ try {
   fs.rmSync(namesakeDir, { recursive: true, force: true });
 }
 
+console.log('Testing symbol callers include aliased imports...');
+const aliasDir = fs.mkdtempSync(path.join(os.tmpdir(), 'symbol-alias-'));
+try {
+  fs.mkdirSync(path.join(aliasDir, 'src'));
+  fs.writeFileSync(
+    path.join(aliasDir, 'src', 'auth.js'),
+    'function login(user) { return user; }\nmodule.exports = { login };\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(aliasDir, 'src', 'alias.js'),
+    'const { login: signIn } = require("./auth");\nsignIn("a");\nmodule.exports = { signIn };\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(aliasDir, 'src', 'esm.js'),
+    'import { login as signIn } from "./auth";\nsignIn("b");\nexport { signIn };\n',
+    'utf8'
+  );
+  const aliasGraph = new SymbolGraph({ rootDir: aliasDir });
+  aliasGraph.build();
+  const aliasCallers = aliasGraph.findSymbolCallers('login');
+  const aliasRel = aliasCallers.map(f => path.relative(aliasDir, f).replace(/\\/g, '/'));
+  assert.ok(aliasRel.includes('src/alias.js'), 'CJS imported-as alias must be a caller of login');
+  assert.ok(aliasRel.includes('src/esm.js'), 'ESM import-as alias must be a caller of login');
+  console.log('✓ Test 43 Passed: findSymbolCallers follows login: signIn aliases.');
+} finally {
+  fs.rmSync(aliasDir, { recursive: true, force: true });
+}
+
 console.log('\nAll Code Symbol Graph & Blast-Radius tests passed successfully! 🎉');

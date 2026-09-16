@@ -193,13 +193,10 @@ function checkSensitiveFiles(fileList) {
   };
 }
 
-// Control flow that increases cyclomatic nesting (not function/else/try wrappers)
-const CONTROL_FLOW_REGEX = /(?:if|for|while|switch|catch)\s*\(/;
-
 /**
  * Analyze code smell & cyclomatic complexity in JavaScript/TypeScript file content.
- * Tracks if/for/while/switch/catch nesting and function lengths with a function stack
- * so nested functions do not close their parent early.
+ * Control-flow braces are stacked separately from object/function braces so
+ * `const o = { x: 1 }` cannot decrement an enclosing `if`.
  */
 function analyzeComplexity(content, filename) {
   const warnings = [];
@@ -207,8 +204,9 @@ function analyzeComplexity(content, filename) {
 
   const lines = content.split('\n');
   let braceDepth = 0;
-  let controlFlowDepth = 0;
   const funcStack = [];
+  const blockStack = [];
+  let pendingControl = 0;
 
   lines.forEach((line, index) => {
     const lineNum = index + 1;
@@ -227,25 +225,33 @@ function analyzeComplexity(content, filename) {
       });
     }
 
-    if (CONTROL_FLOW_REGEX.test(cleanLine)) {
-      controlFlowDepth++;
-      const isDuplicate = warnings.some(w => w.type === 'DEEP_NESTING' && Math.abs(w.line - lineNum) < 3);
-      if (controlFlowDepth > 4 && !isDuplicate) {
-        warnings.push({
-          type: 'DEEP_NESTING',
-          message: `Control flow nesting depth exceeded (${controlFlowDepth} > 4)`,
-          line: lineNum
-        });
-      }
-    }
+    const controlHits = cleanLine.match(/(?:if|for|while|switch|catch)\s*\(/g) || [];
+    pendingControl += controlHits.length;
 
     const openCount = (cleanLine.match(/\{/g) || []).length;
     const closeCount = (cleanLine.match(/\}/g) || []).length;
-    braceDepth += openCount;
+
+    for (let i = 0; i < openCount; i++) {
+      const kind = pendingControl > 0 ? 'control' : 'block';
+      if (kind === 'control') pendingControl--;
+      blockStack.push(kind);
+      braceDepth++;
+      if (kind === 'control') {
+        const controlDepth = blockStack.filter(k => k === 'control').length;
+        const isDuplicate = warnings.some(w => w.type === 'DEEP_NESTING' && Math.abs(w.line - lineNum) < 3);
+        if (controlDepth > 4 && !isDuplicate) {
+          warnings.push({
+            type: 'DEEP_NESTING',
+            message: `Control flow nesting depth exceeded (${controlDepth} > 4)`,
+            line: lineNum
+          });
+        }
+      }
+    }
 
     for (let i = 0; i < closeCount; i++) {
       braceDepth = Math.max(0, braceDepth - 1);
-      if (controlFlowDepth > 0) controlFlowDepth--;
+      if (blockStack.length) blockStack.pop();
       while (funcStack.length && braceDepth <= funcStack[funcStack.length - 1].startDepth) {
         const fn = funcStack.pop();
         const funcLength = lineNum - fn.startLine;

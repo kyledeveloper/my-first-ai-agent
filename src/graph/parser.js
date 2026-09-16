@@ -50,6 +50,27 @@ function collectPatternNames(pattern, names = []) {
 }
 
 /**
+ * CJS ObjectPattern require bindings: imported keys and local names.
+ * `{ login: signIn }` → ['login', 'signIn']
+ */
+function collectCjsNamedImports(pattern, names = []) {
+  if (!pattern) return names;
+  if (pattern.type === 'ObjectPattern') {
+    pattern.properties.forEach(prop => {
+      if (prop.type === 'Property') {
+        if (prop.key && prop.key.type === 'Identifier' && !prop.computed) {
+          names.push(prop.key.name);
+        }
+        collectPatternNames(prop.value, names);
+      } else if (prop.type === 'RestElement') {
+        collectPatternNames(prop.argument, names);
+      }
+    });
+  }
+  return Array.from(new Set(names));
+}
+
+/**
  * Resolve relative or local module import path to an absolute file path.
  * @param {string} importPath - Path string from require() or import
  * @param {string} currentFilePath - File making the import
@@ -447,7 +468,7 @@ function extractCjsRequire(decl, filePath, imports) {
     return;
   }
   if (decl.id.type === 'ObjectPattern') {
-    const names = collectPatternNames(decl.id);
+    const names = collectCjsNamedImports(decl.id);
     imports.push({ type: 'cjs', source, resolvedPath, defaultName: null, named: names });
   }
 }
