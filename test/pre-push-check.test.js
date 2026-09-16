@@ -234,6 +234,58 @@ try {
   fs.rmSync(rangeRepo, { recursive: true, force: true });
 }
 
+console.log('Testing pre-push stdin uses the commits being pushed, not origin/main...HEAD...');
+const pushRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'pre-push-stdin-'));
+try {
+  const git = (args) => spawnSync('git', args, { cwd: pushRepo, encoding: 'utf8' });
+  assert.strictEqual(git(['init']).status, 0);
+  git(['config', 'user.email', 'test@example.com']);
+  git(['config', 'user.name', 'Test']);
+  fs.writeFileSync(path.join(pushRepo, 'clean.js'), 'const ok = 1;\n');
+  git(['add', '.']);
+  assert.strictEqual(git(['commit', '-m', 'base']).status, 0);
+  const shaA = git(['rev-parse', 'HEAD']).stdout.trim();
+
+  fs.writeFileSync(path.join(pushRepo, 'secret.js'), `const alreadyPushed = "${highEntropyToken}";\n`);
+  git(['add', '.']);
+  assert.strictEqual(git(['commit', '-m', 'secret already on remote']).status, 0);
+  const shaB = git(['rev-parse', 'HEAD']).stdout.trim();
+
+  fs.writeFileSync(path.join(pushRepo, 'next.js'), 'const fresh = 3;\n');
+  git(['add', '.']);
+  assert.strictEqual(git(['commit', '-m', 'new unpushed commit']).status, 0);
+  const shaC = git(['rev-parse', 'HEAD']).stdout.trim();
+
+  git(['update-ref', 'refs/remotes/origin/main', shaA]);
+  git(['update-ref', 'refs/remotes/origin/feature', shaB]);
+  git(['checkout', '-B', 'feature']);
+
+  const stdin = `refs/heads/feature ${shaC} refs/heads/feature ${shaB}\n`;
+  const ctx = gatekeeper.resolveGitContext({ stdin, repoRoot: pushRepo });
+  assert.deepStrictEqual(ctx.diffArgs, [shaB, shaC], 'hook stdin must scan remote_sha..local_sha');
+  const pushed = gatekeeper.getOutgoingDiff({ stdin, repoRoot: pushRepo });
+  assert.ok(pushed.includes('fresh'), 'new commit must be in the push scan');
+  assert.ok(!pushed.includes(highEntropyToken), 'already-pushed secret must not be re-scanned');
+
+  const fallback = gatekeeper.resolveGitContext({ stdin: '', repoRoot: pushRepo });
+  assert.ok(
+    String(fallback.diffArgs.join(' ')).includes('origin/main') || String(fallback.diffArgs.join(' ')).includes('origin/HEAD'),
+    'manual CLI without stdin still falls back to origin/main'
+  );
+  const wide = gatekeeper.getOutgoingDiff({ stdin: '', repoRoot: pushRepo });
+  assert.ok(wide.includes(highEntropyToken), 'origin/main...HEAD includes already-pushed feature history');
+
+  const created = gatekeeper.parsePushStdin(
+    `refs/heads/feature ${shaC} refs/heads/new ${'0'.repeat(40)}\n`
+  );
+  assert.strictEqual(created.length, 1);
+  assert.strictEqual(created[0][0], gatekeeper.EMPTY_TREE);
+  assert.strictEqual(created[0][1], shaC);
+  console.log('✓ Test 15 Passed: Hook stdin range is remote_sha..local_sha, not origin/main...HEAD.');
+} finally {
+  fs.rmSync(pushRepo, { recursive: true, force: true });
+}
+
 console.log('Testing object braces do not hide nested control flow...');
 const objectInsideIfs = `
 function f() {

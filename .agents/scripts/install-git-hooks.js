@@ -27,9 +27,10 @@ function installHooks(options = {}) {
   const hookScript = `#!/bin/sh
 # Pre-Push Security & Code Quality Gatekeeper
 # Installed by Antigravity AI Agent
+# Git provides: <local_ref> <local_sha> <remote_ref> <remote_sha> on stdin.
 
 echo "🛡️  Running Pre-Push Security & Code Quality Gatekeeper..."
-node .agents/scripts/runner.js pre-push-check "$@"
+node .agents/scripts/pre-push-check.js
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then

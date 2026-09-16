@@ -306,6 +306,8 @@ function auditDependencies() {
 }
 
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+const ZERO_SHA = /^0+$/;
+const GIT_SHA = /^[0-9a-f]{40,64}$/i;
 
 function gitCapture(args, cwd) {
   const res = spawnSync('git', args, {
@@ -328,21 +330,64 @@ function gitOk(args, cwd) {
 }
 
 /**
- * Resolve Git repository root and outgoing diff args (argv array, never a shell string).
+ * Parse git pre-push stdin lines:
+ *   <local_ref> <local_sha> <remote_ref> <remote_sha>
+ * Returns [fromSha, toSha] pairs. New refs start at EMPTY_TREE. Deletes are skipped.
  */
-function resolveGitContext() {
-  let repoRoot = process.cwd();
+function parsePushStdin(text) {
+  const ranges = [];
+  if (!text || typeof text !== 'string') return ranges;
+  for (const line of text.split('\n')) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 4) continue;
+    const localSha = parts[1];
+    const remoteSha = parts[3];
+    if (!GIT_SHA.test(localSha) || !GIT_SHA.test(remoteSha)) continue;
+    if (ZERO_SHA.test(localSha)) continue;
+    if (ZERO_SHA.test(remoteSha)) {
+      ranges.push([EMPTY_TREE, localSha]);
+    } else {
+      ranges.push([remoteSha, localSha]);
+    }
+  }
+  return ranges;
+}
+
+function readStdinSync() {
+  if (process.stdin.isTTY) return '';
+  try {
+    return fs.readFileSync(0, 'utf8');
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Resolve Git repository root and outgoing diff args (argv array, never a shell string).
+ * When hook stdin is present, scan remote_sha..local_sha for each ref being pushed.
+ */
+function resolveGitContext(options = {}) {
+  let repoRoot = options.repoRoot ? path.resolve(options.repoRoot) : process.cwd();
   const top = gitCapture(['rev-parse', '--show-toplevel'], repoRoot);
   if (top) repoRoot = top;
 
+  const stdinText = options.stdin !== undefined ? options.stdin : '';
+  const ranges = parsePushStdin(stdinText);
+  if (ranges.length === 1) {
+    return { repoRoot, diffArgs: ranges[0].slice(), ranges, source: 'push-stdin' };
+  }
+  if (ranges.length > 1) {
+    return { repoRoot, diffArgs: ranges[0].slice(), ranges, source: 'push-stdin' };
+  }
+
   const upstream = gitCapture(['rev-parse', '--abbrev-ref', '@{u}'], repoRoot);
   if (upstream) {
-    return { repoRoot, diffArgs: [`${upstream}...HEAD`] };
+    return { repoRoot, diffArgs: [`${upstream}...HEAD`], source: 'upstream' };
   }
 
   for (const ref of ['origin/HEAD', 'origin/main', 'origin/master']) {
     if (gitOk(['rev-parse', '--verify', ref], repoRoot)) {
-      return { repoRoot, diffArgs: [`${ref}...HEAD`] };
+      return { repoRoot, diffArgs: [`${ref}...HEAD`], source: ref };
     }
   }
 
@@ -350,11 +395,11 @@ function resolveGitContext() {
   if (remotes) {
     const first = remotes.split('\n').map(s => s.trim()).find(Boolean);
     if (first) {
-      return { repoRoot, diffArgs: [`${first}...HEAD`] };
+      return { repoRoot, diffArgs: [`${first}...HEAD`], source: first };
     }
   }
 
-  return { repoRoot, diffArgs: [EMPTY_TREE, 'HEAD'] };
+  return { repoRoot, diffArgs: [EMPTY_TREE, 'HEAD'], source: 'empty-tree' };
 }
 
 /**
@@ -364,19 +409,32 @@ function getOutgoingDiff(options = {}) {
   if (options.scanText) {
     return options.scanText;
   }
-  const { repoRoot, diffArgs } = resolveGitContext();
-  const out = gitCapture(['diff', ...diffArgs], repoRoot);
+  const ctx = resolveGitContext(options);
+  if (Array.isArray(ctx.ranges) && ctx.ranges.length > 1) {
+    return ctx.ranges
+      .map(pair => gitCapture(['diff', pair[0], pair[1]], ctx.repoRoot) || '')
+      .join('\n');
+  }
+  const out = gitCapture(['diff', ...ctx.diffArgs], ctx.repoRoot);
   return out || '';
 }
 
 /**
  * Get list of outgoing changed file paths.
  */
-function getOutgoingFiles() {
-  const { repoRoot, diffArgs } = resolveGitContext();
-  const list = gitCapture(['diff', '--name-only', ...diffArgs], repoRoot);
+function getOutgoingFiles(options = {}) {
+  const ctx = resolveGitContext(options);
+  if (Array.isArray(ctx.ranges) && ctx.ranges.length > 1) {
+    const names = new Set();
+    for (const pair of ctx.ranges) {
+      const list = gitCapture(['diff', '--name-only', pair[0], pair[1]], ctx.repoRoot);
+      if (list) list.split('\n').map(f => f.trim()).filter(Boolean).forEach(f => names.add(f));
+    }
+    return Array.from(names).map(f => path.resolve(ctx.repoRoot, f));
+  }
+  const list = gitCapture(['diff', '--name-only', ...ctx.diffArgs], ctx.repoRoot);
   if (!list) return [];
-  return list.split('\n').map(f => f.trim()).filter(Boolean).map(f => path.resolve(repoRoot, f));
+  return list.split('\n').map(f => f.trim()).filter(Boolean).map(f => path.resolve(ctx.repoRoot, f));
 }
 
 /**
@@ -448,11 +506,13 @@ Options:
 
   // 1. Scan for hardcoded secrets in diff
   if (!isJson) console.log(i18n.t('cli.gatekeeper.scanning_secrets'));
-  const diffContent = getOutgoingDiff({ scanText: args['scan-text'] });
+  const stdinText = args['scan-text'] ? '' : readStdinSync();
+  const gitOpts = { stdin: stdinText };
+  const diffContent = getOutgoingDiff({ scanText: args['scan-text'], ...gitOpts });
   const secretResult = scanSecrets(diffContent);
 
   // 2. Scan outgoing files for sensitive credential files (.env, private keys)
-  const changedFiles = getOutgoingFiles();
+  const changedFiles = getOutgoingFiles(gitOpts);
   const sensitiveFilesResult = checkSensitiveFiles(changedFiles);
 
   // 3. Audit dependencies
@@ -555,6 +615,8 @@ module.exports = {
   getOutgoingDiff,
   getOutgoingFiles,
   resolveGitContext,
+  parsePushStdin,
+  EMPTY_TREE,
   shannonEntropy,
   isHighEntropySecret,
   run

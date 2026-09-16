@@ -18,10 +18,18 @@ const { LongTermMemory, DEFAULT_DB_PATH } = require('../memory/index');
 const { calculateBlastRadius } = require('../graph/blastRadius');
 const { ToolmakerEngine } = require('../toolmaker/index');
 const { evaluateIntentGate, detectPonytail } = require('./intentGate');
+const { TOOL_NAME_RE } = require('../toolmaker/synthesizer');
 const i18n = require('../i18n');
 
 const DEFAULT_REGISTRY = path.join(__dirname, '../../.agents/scripts/registry.json');
 const DEFAULT_ROOT = path.resolve(__dirname, '../../');
+
+function isInsideRoot(rootDir, candidate) {
+  const root = path.resolve(rootDir);
+  const resolved = path.resolve(candidate);
+  const rel = path.relative(root, resolved);
+  return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
 
 function hasUncommittedDiff(rootDir, target) {
   const resolved = path.resolve(rootDir, target);
@@ -166,6 +174,17 @@ class AgentLoop {
    * Run a registered tool via argv array (no shell interpolation).
    */
   execute(toolName, toolArgs = []) {
+    if (!TOOL_NAME_RE.test(String(toolName || ''))) {
+      return {
+        ok: false,
+        status: 1,
+        tool: toolName,
+        stdout: '',
+        stderr: `Invalid tool name "${toolName}".`,
+        scriptPath: null
+      };
+    }
+
     const tool = this.listTools().find(t => t.name === toolName);
     if (!tool) {
       return {
@@ -179,8 +198,19 @@ class AgentLoop {
     }
 
     const scriptPath = path.isAbsolute(tool.scriptPath)
-      ? tool.scriptPath
-      : path.join(this.rootDir, tool.scriptPath);
+      ? path.resolve(tool.scriptPath)
+      : path.resolve(this.rootDir, tool.scriptPath);
+
+    if (!isInsideRoot(this.rootDir, scriptPath)) {
+      return {
+        ok: false,
+        status: 1,
+        tool: toolName,
+        stdout: '',
+        stderr: `Refusing to execute script outside project root: ${scriptPath}`,
+        scriptPath
+      };
+    }
 
     if (!fs.existsSync(scriptPath)) {
       return {
@@ -599,6 +629,7 @@ module.exports = {
   DEFAULT_REGISTRY,
   DEFAULT_ROOT,
   hasUncommittedDiff,
+  isInsideRoot,
   evaluateIntentGate: require('./intentGate').evaluateIntentGate,
   detectPonytail: require('./intentGate').detectPonytail
 };

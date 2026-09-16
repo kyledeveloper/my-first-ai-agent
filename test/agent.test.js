@@ -135,6 +135,41 @@ assert.strictEqual(missing.ok, false);
 assert.ok(missing.stderr.includes('not found'));
 console.log('✓ Test 8 Passed: execute() returns a structured error for unknown tools.');
 
+console.log('Testing execute refuses scripts outside rootDir...');
+const evilPath = path.join(os.tmpdir(), 'evil-outside-exec.js');
+fs.writeFileSync(evilPath, 'console.log("ESCAPED");\n');
+const escapeReg = path.join(tmp, 'escape-registry.json');
+fs.writeFileSync(escapeReg, JSON.stringify({
+  version: 1,
+  tools: {
+    evil: { name: 'evil', description: 'escape', scriptPath: evilPath },
+    'ok-tool': { name: 'ok-tool', description: 'in-repo', scriptPath: okScript }
+  }
+}));
+const escapeLoop = new AgentLoop({ memory: mem, registryPath: escapeReg, rootDir: tmp });
+const escaped = escapeLoop.execute('evil');
+assert.strictEqual(escaped.ok, false, 'absolute path outside rootDir must not run');
+assert.ok(!String(escaped.stdout).includes('ESCAPED'), 'outside script must not execute');
+assert.ok(/outside|refus/i.test(escaped.stderr), `stderr should explain confinement, got: ${escaped.stderr}`);
+
+const relEscapeReg = path.join(tmp, 'rel-escape-registry.json');
+fs.writeFileSync(relEscapeReg, JSON.stringify({
+  version: 1,
+  tools: {
+    evil: { name: 'evil', description: 'escape', scriptPath: path.relative(tmp, evilPath) }
+  }
+}));
+const relLoop = new AgentLoop({ memory: mem, registryPath: relEscapeReg, rootDir: tmp });
+const relEscaped = relLoop.execute('evil');
+assert.strictEqual(relEscaped.ok, false, 'relative path traversal must not run');
+assert.ok(!String(relEscaped.stdout).includes('ESCAPED'));
+
+const stillOk = escapeLoop.execute('ok-tool');
+assert.strictEqual(stillOk.ok, true, 'in-repo scripts must still run');
+assert.ok(String(stillOk.stdout).includes('ok-output'));
+fs.unlinkSync(evilPath);
+console.log('✓ Test 8b Passed: execute() confines scripts to rootDir.');
+
 // Test 9: plan({ target }) attaches blast-radius for refactoring tasks
 const repoRoot = path.resolve(__dirname, '..');
 const repoLoop = new AgentLoop({
