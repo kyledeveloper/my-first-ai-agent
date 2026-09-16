@@ -31,14 +31,30 @@ function isInsideRoot(rootDir, candidate) {
   return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-function hasUncommittedDiff(rootDir, target) {
+function inspectWorkingTree(rootDir, target) {
   const resolved = path.resolve(rootDir, target);
   const rel = path.relative(rootDir, resolved);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+    return { dirty: false, untracked: false, rel };
+  }
   const opts = { cwd: rootDir, encoding: 'utf8', timeout: 5000 };
-  const unstaged = spawnSync('git', ['diff', '--', rel], opts);
-  const staged = spawnSync('git', ['diff', '--cached', '--', rel], opts);
-  if ((unstaged.error || staged.error)) return false;
-  return Boolean((unstaged.stdout || '').trim() || (staged.stdout || '').trim());
+  const status = spawnSync('git', ['status', '--porcelain', '--untracked-files=normal', '--', rel], opts);
+  if (status.error || status.status !== 0) {
+    return { dirty: false, untracked: false, rel };
+  }
+  const out = (status.stdout || '').trim();
+  return { dirty: Boolean(out), untracked: /^\?\?/.test(out), rel };
+}
+
+function hasUncommittedDiff(rootDir, target) {
+  return inspectWorkingTree(rootDir, target).dirty;
+}
+
+function syntheticAddDiff(rel, filePath) {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const lines = content.split('\n');
+  const body = lines.map(l => `+${l}`).join('\n');
+  return `diff --git a/${rel} b/${rel}\nnew file mode 100644\n--- /dev/null\n+++ b/${rel}\n@@ -0,0 +1,${Math.max(lines.length, 1)} @@\n${body}\n`;
 }
 
 function summarizeBlast(report, rootDir) {
@@ -149,11 +165,16 @@ class AgentLoop {
 
     let blastRadius = null;
     if (target) {
-      const dirty = hasUncommittedDiff(this.rootDir, target);
+      const tree = inspectWorkingTree(this.rootDir, target);
+      const extra = {};
+      if (tree.untracked && fs.existsSync(path.resolve(this.rootDir, target))) {
+        extra.diff = syntheticAddDiff(tree.rel, path.resolve(this.rootDir, target));
+      }
       const report = calculateBlastRadius(target, {
         rootDir: this.rootDir,
-        diffAware: dirty,
-        semantic: dirty
+        diffAware: tree.dirty,
+        semantic: tree.dirty,
+        ...extra
       });
       blastRadius = summarizeBlast(report, this.rootDir);
     }
@@ -558,12 +579,27 @@ function main() {
         printUsage();
         process.exit(1);
       }
+      const recordOnFailure = !!args['record-failure'];
+      const cause = args.cause || args['root-cause'];
+      const heuristic = args.heuristic;
+      if (recordOnFailure && (!cause || !heuristic)) {
+        console.error(i18n.t('cli.agent.record_failure_requires'));
+        process.exit(1);
+      }
       const report = loop.run(intent, {
         tool: args.tool || null,
         args: passthrough,
         target: args.target || null,
         exec: !!args.exec || !!args.tool,
-        recordOnFailure: !!args['record-failure'],
+        recordOnFailure,
+        diagnosis: recordOnFailure
+          ? {
+            trigger_pattern: args.trigger || undefined,
+            root_cause: cause,
+            corrective_heuristic: heuristic,
+            failure_mode: args['failure-mode'] || ''
+          }
+          : null,
         force: !!args.force || !!args.clarified,
         audit: !!args.audit
       });
@@ -629,6 +665,7 @@ module.exports = {
   DEFAULT_REGISTRY,
   DEFAULT_ROOT,
   hasUncommittedDiff,
+  inspectWorkingTree,
   isInsideRoot,
   evaluateIntentGate: require('./intentGate').evaluateIntentGate,
   detectPonytail: require('./intentGate').detectPonytail

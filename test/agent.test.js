@@ -204,8 +204,15 @@ const dirtyPlan = dirtyLoop.plan('refactor login', { target: 'src/lib.js' });
 assert.strictEqual(dirtyPlan.blastRadius.isDiffAware, true, 'dirty file must enable diff-aware mode');
 assert.ok(dirtyPlan.blastRadius.semantic, 'dirty file must run AST semantic contract');
 assert.strictEqual(dirtyPlan.blastRadius.semantic.mode, 'ast-contract');
+fs.writeFileSync(path.join(dirtySrc, 'new.js'), 'function signup(user) { return user; }\nmodule.exports = { signup };\n');
+assert.strictEqual(require('../src/agent/index').hasUncommittedDiff(dirtyRoot, 'src/new.js'), true, 'untracked file must be dirty');
+const untrackedPlan = dirtyLoop.plan('refactor signup', { target: 'src/new.js' });
+assert.strictEqual(untrackedPlan.blastRadius.isDiffAware, true, 'untracked file must enable diff-aware mode');
+assert.notStrictEqual(untrackedPlan.blastRadius.scope, 'CLEAN', 'a new untracked file is not a clean no-op diff');
+assert.ok(untrackedPlan.blastRadius.scope === 'PUBLIC_CONTRACT' || untrackedPlan.blastRadius.riskScore > 0);
 fs.rmSync(dirtyRoot, { recursive: true, force: true });
 console.log('✓ Test 9b Passed: plan() auto-enables --diff --semantic when the target is dirty.');
+console.log('✓ Test 9c Passed: untracked new files are dirty and not treated as CLEAN.');
 
 // Test 10: CLI plan --json is executable and returns structured output
 const cliPath = path.resolve(__dirname, '../src/agent/index.js');
@@ -238,6 +245,41 @@ assert.strictEqual(cliZh.status, 0, `CLI zh plan should exit 0, stderr=${cliZh.s
 assert.ok(cliZh.stdout.includes('=== Agent Loop：计划 ==='), 'human CLI must follow --lang zh-CN');
 assert.ok(cliZh.stdout.includes('没有与该意图匹配的既有反思经验'));
 console.log('✓ Test 12 Passed: Agent CLI human output uses src/i18n.js.');
+
+console.log('Testing CLI --record-failure requires a diagnosis...');
+const recDb = path.join(tmp, 'record-failure.db');
+const recMissing = spawnSync(process.execPath, [
+  cliPath, 'run', 'always fails for loop tests',
+  '--tool', 'fail-tool',
+  '--record-failure',
+  '--registry', registryPath,
+  '--root', tmp,
+  '--db', recDb,
+  '--json'
+], { encoding: 'utf8', cwd: repoRoot });
+assert.strictEqual(recMissing.status, 1, `missing diagnosis must exit 1, stderr=${recMissing.stderr}`);
+assert.ok(
+  recMissing.stderr.includes('requires --cause') || recMissing.stderr.includes('--cause'),
+  `stderr must demand --cause/--heuristic, got: ${recMissing.stderr}`
+);
+
+const recOk = spawnSync(process.execPath, [
+  cliPath, 'run', 'always fails for loop tests',
+  '--tool', 'fail-tool',
+  '--record-failure',
+  '--cause', 'fail-tool is a fixture that always exits 2',
+  '--heuristic', 'Do not retry fail-tool; assert on status 2',
+  '--trigger', 'tool:fail-tool',
+  '--registry', registryPath,
+  '--root', tmp,
+  '--db', recDb,
+  '--json'
+], { encoding: 'utf8', cwd: repoRoot });
+assert.ok(recOk.status !== 1 || recOk.stdout.includes('"recorded"'), `diagnosed run stderr=${recOk.stderr} stdout=${recOk.stdout.slice(0, 300)}`);
+const recPayload = JSON.parse(recOk.stdout.trim());
+assert.ok(recPayload.recorded && recPayload.recorded.id, 'diagnosed --record-failure must write a reflection');
+assert.strictEqual(recPayload.recordSkipped, null);
+console.log('✓ Test 12b Passed: CLI --record-failure without --cause/--heuristic writes nothing.');
 
 console.log('Testing run() tracks tool usage on the Toolmaker when injected...');
 const tm = new ToolmakerEngine({ dbOrPath: ':memory:', registryPath });
